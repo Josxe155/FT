@@ -1,0 +1,13 @@
+FUNADOS TODOS V15 — PRIMER DESPLIEGUE
+
+1. Abre README.md y completa los requisitos de Firebase.
+2. databaseURL y RTDB_URL configuradas con la instancia proporcionada. Verifica que sea la misma base en Console.
+3. cd source && npm install && npm run build && cd ..
+4. cd functions && npm install && cd ..
+5. node scripts/preflight.mjs
+6. firebase login && firebase use funados-todos
+7. Prueba primero con Firebase Emulator Suite.
+8. firebase deploy --only firestore:rules,firestore:indexes,database,functions,hosting
+9. Acceso admin: lee README.md y ejecuta functions/grant-admin.mjs desde entorno autorizado.
+
+NO DESPLEGADO REMOTAMENTE: falta sesión Firebase CLI autorizada y verificar las reglas. NO INCLUIR CONTRASEÑAS EN EL CÓDIGO.

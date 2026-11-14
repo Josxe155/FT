@@ -1,0 +1,25 @@
+FUNADOS TODOS V15 — PRUEBAS LOCALES
+
+APROBADO
+- TypeScript: tsc --noEmit y build terminado.
+- JavaScript: node --check en frontend, dashboard y functions.
+- JSON: Realtime Database, Hosting e índices, parseo válido.
+- Chromium qa/test_ui.py: 320, 390, 768 y 1440 px.
+- Chromium qa/test_v15.py: 320, 390, 768 y 1440 px; reportar con Otro, bloqueo de reportes repetidos, controles de tarjeta y estado pending.
+- Chromium qa/test_sensitive.py: 320, 390, 768 y 1440 px.
+- Chromium qa/test_extra.py: 390 y 1440 px, menú, Atrás/Escape, TikTok, preferencias, cierre de sesión.
+- Compilado de dashboard.html y web/assets/dashboard.js presentes.
+- Rutas de Hosting y estructura del proyecto comprobadas estáticamente.
+
+NO COMPROBADO EN FIREBASE REAL / EMULADORES
+- Compilación semántica de reglas de Firestore/RTDB por Firebase CLI.
+- Inicio de sesión Google, email/password, permisos por cuenta, Cloud Functions, triggers y App Check.
+- Escritos de RTDB por lotes y sus límites en el proyecto Firebase.
+- Despliegue de Hosting y autorización del correo administrador.
+
+BLOQUEOS CONOCIDOS DE LANZAMIENTO
+- No se proporcionó databaseURL.
+- No hay functions/.env con RTDB_URL.
+- Firebase CLI no está instalado ni autenticado en este entorno; npm registry inaccesible.
+- Cloud Functions requiere configuraciones/plan habilitados en el proyecto.
+- Sin Firebase real NO SE PUEDE GARANTIZAR la ausencia total de errores.

@@ -1,0 +1,192 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signed() { return request.auth != null; }
+    // La identidad proviene de un token de Firebase Authentication firmado, no del navegador.
+    function admin() { return signed() && request.auth.token.email_verified == true && request.auth.token.email == 'alexander155alvarado@gmail.com'; }
+    function canton(c) { return c in ['arenillas','atahualpa','balsas','chilla','el-guabo','huaquillas','las-lajas','machala','marcabeli','pasaje','pinas','portovelo','santa-rosa','zaruma']; }
+    function approvedPost(postId) {
+      return signed() && exists(/databases/$(database)/documents/reports/$(postId))
+        && get(/databases/$(database)/documents/reports/$(postId)).data.status == 'approved';
+    }
+    function ownsPost(postId) {
+      return signed() && exists(/databases/$(database)/documents/reports/$(postId))
+        && get(/databases/$(database)/documents/reports/$(postId)).data.authorUid == request.auth.uid;
+    }
+    function readablePost(postId) {
+      return approvedPost(postId) || ownsPost(postId) || admin();
+    }
+    function publicComment(postId, commentId) {
+      return approvedPost(postId)
+        && exists(/databases/$(database)/documents/reports/$(postId)/replies/$(commentId))
+        && get(/databases/$(database)/documents/reports/$(postId)/replies/$(commentId)).data.status == 'approved';
+    }
+    function validReaction() {
+      return signed() && request.resource.data.keys().hasOnly(['kind','updatedAt'])
+        && request.resource.data.keys().hasAll(['kind','updatedAt'])
+        && request.resource.data.kind in ['like','wow','concern','none']
+        && request.resource.data.updatedAt == request.time;
+    }
+    function validTotals(counts) {
+      return counts.keys().hasOnly(['like','wow','concern','updatedAt'])
+        && counts.keys().hasAll(['like','wow','concern','updatedAt'])
+        && counts.like is int && counts.wow is int && counts.concern is int
+        && counts.like >= 0 && counts.wow >= 0 && counts.concern >= 0
+        && counts.updatedAt == request.time;
+    }
+    function oldPostVote(reportId, uid) {
+      return exists(/databases/$(database)/documents/reports/$(reportId)/reactions/$(uid))
+        ? get(/databases/$(database)/documents/reports/$(reportId)/reactions/$(uid)).data.kind : 'none';
+    }
+    function validPostTotals(reportId, uid, beforeKind, afterKind) {
+      let path = /databases/$(database)/documents/reports/$(reportId)/reactionStats/summary;
+      let before = exists(path) ? get(path).data : {'like':0,'wow':0,'concern':0,'updatedAt':request.time};
+      let after = getAfter(path).data;
+      return validTotals(after)
+        && after.like == before.like + (afterKind == 'like' ? 1 : 0) - (beforeKind == 'like' ? 1 : 0)
+        && after.wow == before.wow + (afterKind == 'wow' ? 1 : 0) - (beforeKind == 'wow' ? 1 : 0)
+        && after.concern == before.concern + (afterKind == 'concern' ? 1 : 0) - (beforeKind == 'concern' ? 1 : 0);
+    }
+    function oldCommentVote(reportId, replyId, uid) {
+      return exists(/databases/$(database)/documents/reports/$(reportId)/replies/$(replyId)/reactions/$(uid))
+        ? get(/databases/$(database)/documents/reports/$(reportId)/replies/$(replyId)/reactions/$(uid)).data.kind : 'none';
+    }
+    function validCommentTotals(reportId, replyId, uid, beforeKind, afterKind) {
+      let path = /databases/$(database)/documents/reports/$(reportId)/replies/$(replyId)/reactionStats/summary;
+      let before = exists(path) ? get(path).data : {'like':0,'wow':0,'concern':0,'updatedAt':request.time};
+      let after = getAfter(path).data;
+      return validTotals(after)
+        && after.like == before.like + (afterKind == 'like' ? 1 : 0) - (beforeKind == 'like' ? 1 : 0)
+        && after.wow == before.wow + (afterKind == 'wow' ? 1 : 0) - (beforeKind == 'wow' ? 1 : 0)
+        && after.concern == before.concern + (afterKind == 'concern' ? 1 : 0) - (beforeKind == 'concern' ? 1 : 0);
+    }
+    match /reports/{reportId} {
+      // Importante: las consultas del cliente filtran status; las reglas no filtran resultados.
+      allow get, list: if signed() && (resource.data.status == 'approved'
+        || resource.data.authorUid == request.auth.uid || admin());
+      allow create: if signed()
+        && request.resource.data.keys().hasOnly(['id','canton','title','description','category','status','authorUid','authorAlias','createdAt','images','media','sensitiveContent'])
+        && request.resource.data.keys().hasAll(['id','canton','title','description','category','status','authorUid','authorAlias','createdAt','images'])
+        && request.resource.data.id == reportId && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.status == 'approved' && request.resource.data.category == 'Funa'
+        && request.resource.data.authorAlias == 'Anónimo' && canton(request.resource.data.canton)
+        && request.resource.data.title is string && request.resource.data.title.size() >= 10 && request.resource.data.title.size() <= 110
+        && request.resource.data.description is string && request.resource.data.description.size() >= 25 && request.resource.data.description.size() <= 1800
+        && request.resource.data.images is list && request.resource.data.images.size() <= 10
+        && (!('media' in request.resource.data) || (request.resource.data.media is list && request.resource.data.media.size() <= 10))
+        && (!('sensitiveContent' in request.resource.data) || request.resource.data.sensitiveContent is bool)
+        && request.resource.data.createdAt == request.time;
+      // Cambios de estado por administrador. El frontend no puede autoaprobar contenidos retirados.
+      allow update: if admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedAt','reportCount'])
+        && request.resource.data.status in ['approved','pending','rejected'];
+      allow delete: if admin();
+      match /reactions/{uid} {
+        allow get: if signed() && (request.auth.uid == uid || admin()) && approvedPost(reportId);
+        allow list: if false;
+        allow create, update: if signed() && request.auth.uid == uid && approvedPost(reportId) && validReaction()
+          && validPostTotals(reportId,uid,oldPostVote(reportId,uid),request.resource.data.kind);
+        allow delete: if false;
+      }
+      match /reactionStats/{id} {
+        allow get: if id == 'summary' && approvedPost(reportId);
+        allow list: if false;
+        allow create, update: if id == 'summary' && signed() && approvedPost(reportId)
+          && getAfter(/databases/$(database)/documents/reports/$(reportId)/reactions/$(request.auth.uid)).data.updatedAt == request.time
+          && validPostTotals(reportId,request.auth.uid,oldPostVote(reportId,request.auth.uid),getAfter(/databases/$(database)/documents/reports/$(reportId)/reactions/$(request.auth.uid)).data.kind);
+        allow delete: if false;
+      }
+      match /replies/{replyId} {
+        allow get, list: if signed() && readablePost(reportId) &&
+          (resource.data.status == 'approved' || resource.data.authorUid == request.auth.uid || admin());
+        allow create: if signed() && approvedPost(reportId)
+          && request.resource.data.keys().hasOnly(['reportId','text','authorUid','authorAlias','status','createdAt','parentId'])
+          && request.resource.data.keys().hasAll(['reportId','text','authorUid','authorAlias','status','createdAt'])
+          && request.resource.data.reportId == reportId && request.resource.data.authorUid == request.auth.uid
+          && request.resource.data.authorAlias == 'Anónimo' && request.resource.data.status == 'approved'
+          && request.resource.data.text is string && request.resource.data.text.size() >= 8 && request.resource.data.text.size() <= 700
+          && (!('parentId' in request.resource.data) || (
+            request.resource.data.parentId is string && request.resource.data.parentId != replyId
+            && publicComment(reportId, request.resource.data.parentId)))
+          && request.resource.data.createdAt == request.time;
+        allow update: if admin() || (signed() && resource.data.authorUid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text','editedAt'])
+          && request.resource.data.text is string && request.resource.data.text.size() >= 8
+          && request.resource.data.text.size() <= 700 && request.resource.data.editedAt == request.time);
+        allow delete: if admin() || (signed() && resource.data.authorUid == request.auth.uid);
+        match /reactions/{uid} {
+          allow get: if signed() && request.auth.uid == uid && publicComment(reportId,replyId);
+          allow list: if false;
+          allow create, update: if signed() && request.auth.uid == uid
+            && publicComment(reportId,replyId) && validReaction()
+            && validCommentTotals(reportId,replyId,uid,oldCommentVote(reportId,replyId,uid),request.resource.data.kind);
+          allow delete: if false;
+        }
+        match /reactionStats/{id} {
+          allow get: if id == 'summary' && publicComment(reportId,replyId);
+          allow list: if false;
+          allow create, update: if id == 'summary' && signed() && publicComment(reportId,replyId)
+            && getAfter(/databases/$(database)/documents/reports/$(reportId)/replies/$(replyId)/reactions/$(request.auth.uid)).data.updatedAt == request.time
+            && validCommentTotals(reportId,replyId,request.auth.uid,oldCommentVote(reportId,replyId,request.auth.uid),getAfter(/databases/$(database)/documents/reports/$(reportId)/replies/$(replyId)/reactions/$(request.auth.uid)).data.kind);
+          allow delete: if false;
+        }
+      }
+      match /updates/{updateId} {
+        allow get, list: if readablePost(reportId);
+        allow create: if signed() && approvedPost(reportId)
+          && get(/databases/$(database)/documents/reports/$(reportId)).data.authorUid == request.auth.uid
+          && request.resource.data.keys().hasOnly(['reportId','text','authorUid','createdAt'])
+          && request.resource.data.keys().hasAll(['reportId','text','authorUid','createdAt'])
+          && request.resource.data.reportId == reportId && request.resource.data.authorUid == request.auth.uid
+          && request.resource.data.text is string && request.resource.data.text.size() >= 10
+          && request.resource.data.text.size() <= 1000 && request.resource.data.createdAt == request.time;
+        allow update, delete: if false;
+      }
+    }
+    match /flags/{flagId} {
+      allow create: if signed()
+        && request.resource.data.keys().hasOnly(['reportId','replyId','reason','details','reporterUid','createdAt'])
+        && request.resource.data.keys().hasAll(['reportId','replyId','reason','reporterUid','createdAt'])
+        && request.resource.data.reporterUid == request.auth.uid
+        && request.resource.data.reportId is string
+        && request.resource.data.reportId.size() >= 8 && request.resource.data.reportId.size() <= 90
+        && approvedPost(request.resource.data.reportId)
+        && request.resource.data.replyId is string
+        && (request.resource.data.replyId == 'post' ||
+          (request.resource.data.replyId.size() <= 120 && publicComment(request.resource.data.reportId,request.resource.data.replyId)))
+        && flagId == request.resource.data.reportId + '_' +
+           request.resource.data.replyId + '_' + request.auth.uid
+        && request.resource.data.reason in ['Acoso','Datos personales','Imágenes sin consentimiento','Otro']
+        && (request.resource.data.reason != 'Otro' ||
+          ('details' in request.resource.data && request.resource.data.details is string
+           && request.resource.data.details.size() >= 10 && request.resource.data.details.size() <= 500))
+        && request.resource.data.createdAt == request.time;
+      allow get: if admin() || (signed() && resource.data.reporterUid == request.auth.uid);
+      allow list: if admin();
+      allow update, delete: if false;
+    }
+    match /userPrefs/{uid} {
+      allow get: if signed() && request.auth.uid == uid;
+      allow list: if false;
+      allow create, update: if signed() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['uid','alias','updatedAt'])
+        && request.resource.data.keys().hasAll(['uid','alias','updatedAt'])
+        && request.resource.data.uid == uid && request.resource.data.alias is string
+        && request.resource.data.alias.size() >= 2 && request.resource.data.alias.size() <= 24
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if signed() && request.auth.uid == uid;
+    }
+    match /profiles/{uid} {
+      // TikTok declarado voluntariamente; no se anuncia verificación oficial.
+      allow get, list: if signed();
+      allow create, update: if signed() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['uid','alias','tiktokUsername','tiktokVerified','updatedAt'])
+        && request.resource.data.uid == uid && request.resource.data.tiktokVerified == false
+        && request.resource.data.alias is string && request.resource.data.alias.size() <= 90
+        && request.resource.data.tiktokUsername is string
+        && request.resource.data.tiktokUsername.size() >= 2 && request.resource.data.tiktokUsername.size() <= 24
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if signed() && request.auth.uid == uid;
+    }
+    match /{all=**} { allow read, write: if false; }
+  }
+}

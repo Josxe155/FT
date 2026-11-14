@@ -1,0 +1,49 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "presence": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['online','lastSeen']) && newData.child('online').isBoolean() && newData.child('lastSeen').isNumber()"
+      }
+    },
+    "evidence": {
+      "$uid": {
+        "$reportId": {
+          ".read": "auth != null && root.child('blockedEvidence').child($reportId).val() !== true && (auth.uid === $uid || root.child('evidenceVisibility').child($reportId).child('visible').val() === true || (auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'))",
+          "files": {
+            "$slot": {
+              ".validate": "$slot.matches(/^[0-9]$/) && newData.hasChild('meta')",
+              "meta": {
+                ".write": "auth != null && auth.uid === $uid && $slot.matches(/^[0-9]$/) && !data.exists() && root.child('blockedEvidence').child($reportId).val() !== true",
+                ".validate": "newData.hasChildren(['id','ownerUid','name','type','size','chunks','createdAt']) && newData.child('id').val() === $slot && newData.child('ownerUid').val() === $uid && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 90 && newData.child('type').isString() && newData.child('type').val().matches(/^(image\\/(jpeg|png|webp)|video\\/(mp4|webm|quicktime))$/) && newData.child('size').isNumber() && newData.child('size').val() > 0 && newData.child('size').val() <= 10485760 && (!newData.child('type').val().matches(/^image\\//) || newData.child('size').val() <= 5242880) && newData.child('chunks').isNumber() && newData.child('chunks').val() >= 1 && newData.child('chunks').val() <= 220 && newData.child('createdAt').isNumber()"
+              },
+              "chunks": {
+                "$index": {
+                  ".write": "auth != null && auth.uid === $uid && $slot.matches(/^[0-9]$/) && $index.matches(/^(0|[1-9]|[1-9][0-9]|1[0-9][0-9]|20[0-9]|21[0-9])$/) && root.child('evidence').child($uid).child($reportId).child('files').child($slot).child('meta').exists() && !data.exists() && root.child('blockedEvidence').child($reportId).val() !== true",
+                  ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 65536 && newData.val().matches(/^[A-Za-z0-9+\\/=]+$/)"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "evidenceVisibility": {
+      ".read": false,
+      "$reportId": {
+        ".write": "auth != null && ((!data.exists() && auth.uid === newData.child('ownerUid').val() && newData.child('visible').val() === true) || (auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'))",
+        ".validate": "newData.hasChildren(['ownerUid','visible']) && newData.child('ownerUid').isString() && newData.child('visible').isBoolean()"
+      }
+    },
+    "blockedEvidence": {
+      ".read": false,
+      "$reportId": {
+        ".write": "auth != null && auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'",
+        ".validate": "newData.isBoolean()"
+      }
+    }
+  }
+}
