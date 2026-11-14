@@ -1,5 +1,5 @@
 import { cantons, cantonMap } from './cantons.js';
-import { firebaseEnabled, initFirebase, loginGoogle, loginGuest, logoutFirebase, saveAlias, listenReports, loadMoreReports, hasMoreReports, getCantonTotals, listenReplies, addReport, realtimeMediaAvailable, loadEvidenceURL, clearEvidenceCache, flagReport, saveTikTok, deleteTikTok, listenTikTok, listenReactionSummary, setReaction, addNestedReply, editReplyText, deleteOwnReply, listenFunaUpdates, addFunaUpdate, listenCommentReactionSummary, setCommentReaction, fetchReportById, countMyReports } from './firebase-client.js';
+import { firebaseEnabled, initFirebase, loginGoogle, loginGuest, logoutFirebase, saveAlias, listenReports, loadMoreReports, hasMoreReports, getCantonTotals, listenReplies, addReport, realtimeMediaAvailable, loadEvidenceURL, clearEvidenceCache, flagReport, saveTikTok, deleteTikTok, listenTikTok, trackVisit, listenReactionSummary, setReaction, addNestedReply, editReplyText, deleteOwnReply, listenFunaUpdates, addFunaUpdate, listenCommentReactionSummary, setCommentReaction, fetchReportById, countMyReports } from './firebase-client.js';
 const app = document.getElementById('app');
 const modal = document.getElementById('modal-root');
 const toasts = document.getElementById('toasts');
@@ -1145,7 +1145,8 @@ window.addEventListener('hashchange', () => { if (location.hash === lastRendered
     return; state.menu = false; state.search = ''; requestRouteRender(); });
 applyPrefs();
 render();
-initFirebase(user => setUser(user)).then(active => { if (!active) {
+initFirebase(user => { if (user)
+    void trackVisit(user).catch(() => { }); setUser(user); }).then(active => { if (!active) {
     const id = sessionStorage.getItem(KEY.session);
     if (id)
         setUser({ uid: id, alias: read(KEY.alias, 'Invitado'), isAnonymous: true });

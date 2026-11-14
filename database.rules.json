@@ -9,6 +9,13 @@
         ".validate": "newData.hasChildren(['online','lastSeen']) && newData.child('online').isBoolean() && newData.child('lastSeen').isNumber()"
       }
     },
+    "visits": {
+      "$uid": {
+        ".read": "auth != null && auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'",
+        ".write": "auth != null && auth.uid === $uid && !data.exists()",
+        ".validate": "newData.hasChildren(['firstSeen']) && newData.child('firstSeen').isNumber()"
+      }
+    },
     "evidence": {
       "$uid": {
         "$reportId": {

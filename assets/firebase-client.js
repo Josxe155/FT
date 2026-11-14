@@ -269,6 +269,15 @@ export function trackPresence(user, onCount) {
     onCount(0);
     return () => { unsubC(); d.remove(path).catch(() => { }); };
 }
+/** Registra una visita única por cuenta; el panel solo recibe el total. */
+export async function trackVisit(user) {
+    if (!modules?.database || !rtdb)
+        return;
+    const d = modules.database, ref = d.ref(rtdb, `visits/${user.uid}`);
+    const snap = await d.get(ref);
+    if (!snap.exists())
+        await d.set(ref, { firstSeen: d.serverTimestamp() });
+}
 export async function saveTikTok(username, user) {
     if (!modules)
         throw new Error('Firebase no disponible');

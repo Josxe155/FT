@@ -1,5 +1,5 @@
 import {cantons,cantonMap,type Canton,type Report,type Reply,type FunaUpdate,type EvidenceMeta} from './cantons.js';
-import {firebaseEnabled,initFirebase,loginGoogle,loginGuest,logoutFirebase,saveAlias,listenReports,loadMoreReports,hasMoreReports,getCantonTotals,listenReplies,addReport,realtimeMediaAvailable,loadEvidenceURL,clearEvidenceCache,addReply,flagReport,saveTikTok,deleteTikTok,listenTikTok,trackPresence,listenReactionSummary,setReaction,addNestedReply,editReplyText,deleteOwnReply,listenFunaUpdates,addFunaUpdate,listenCommentReactionSummary,setCommentReaction,fetchReportById,countMyReports,type ReactionKind,type ReactionCounts,type User} from './firebase-client.js';
+import {firebaseEnabled,initFirebase,loginGoogle,loginGuest,logoutFirebase,saveAlias,listenReports,loadMoreReports,hasMoreReports,getCantonTotals,listenReplies,addReport,realtimeMediaAvailable,loadEvidenceURL,clearEvidenceCache,addReply,flagReport,saveTikTok,deleteTikTok,listenTikTok,trackPresence,trackVisit,listenReactionSummary,setReaction,addNestedReply,editReplyText,deleteOwnReply,listenFunaUpdates,addFunaUpdate,listenCommentReactionSummary,setCommentReaction,fetchReportById,countMyReports,type ReactionKind,type ReactionCounts,type User} from './firebase-client.js';
 
 const app=document.getElementById('app')!;
 const modal=document.getElementById('modal-root')!;
@@ -451,4 +451,4 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(state.menu){stat
 window.addEventListener('popstate',()=>{if(state.menu){state.menu=false;render();}else if(state.dialogue)close();else if(state.thread)toggleInlineThread(state.thread);else if(location.hash!==lastRenderedHash)requestRouteRender();});
 window.addEventListener('hashchange',()=>{if(location.hash===lastRenderedHash)return;state.menu=false;state.search='';requestRouteRender();});
 applyPrefs();render();
-initFirebase(user=>setUser(user)).then(active=>{if(!active){const id=sessionStorage.getItem(KEY.session);if(id)setUser({uid:id,alias:read(KEY.alias,'Invitado'),isAnonymous:true});}}).catch(()=>toast('No se pudo conectar. Comprueba la configuración y la conexión.','bad'));
+initFirebase(user=>{if(user)void trackVisit(user).catch(()=>{});setUser(user);}).then(active=>{if(!active){const id=sessionStorage.getItem(KEY.session);if(id)setUser({uid:id,alias:read(KEY.alias,'Invitado'),isAnonymous:true});}}).catch(()=>toast('No se pudo conectar. Comprueba la configuración y la conexión.','bad'));
