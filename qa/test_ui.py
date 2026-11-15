@@ -63,7 +63,7 @@ with sync_playwright() as p:
   page.locator('.inline-comment-title [data-action="thread"]').click()
   assert page.locator('.inline-comments').count()==0
   # Updates existing modal
-  page.get_by_role('button',name='Actualizaciones').click()
+  page.get_by_role('button',name='Actualizaciones',exact=True).click()
   assert page.locator('#update-form').count()==1
   page.locator('#update-text').fill('Nueva actualización publicada después de revisar el problema inicial.')
   page.get_by_role('button',name='Publicar actualización').click()
@@ -119,6 +119,38 @@ with sync_playwright() as p:
   page.evaluate('window.__qaReplyResolve()')
   page.wait_for_function('document.querySelector("#reply-text").value==="" && !document.querySelector("#reply-text").disabled')
   assert page.locator('.reply-item').count()==2
+  # La escucha de novedades actualiza solo el hilo, sin sustituir el formulario.
+  page.evaluate("""() => {
+    countFunaUpdates=async()=>1;
+    listenFunaUpdates=(id,onData,onError)=>{window.__qaUpdates=onData;window.__qaUpdatesError=onError;return ()=>{};};
+    toggleUpdates(state.remoteReports[0].id);
+  }""")
+  page.locator('#update-text').fill('Borrador con una foto que debe sobrevivir a la escucha remota.')
+  page.locator('#update-images').set_input_files(str(root/'source/public/assets/icon-192.png'))
+  page.evaluate("""() => {
+    window.__qaUpdateInput=document.querySelector('#update-text');
+    window.__qaUpdates([{id:'first-update',reportId:state.updatesPost,text:'Primera novedad remota.',authorUid:state.user.uid,createdAt:Date.now()}]);
+  }""")
+  assert page.evaluate('window.__qaUpdateInput===document.querySelector("#update-text")')
+  assert page.locator('.update-selected-photo').count()==1
+  assert page.locator('#update-text').input_value().startswith('Borrador')
+  page.evaluate("""() => {
+    window.__qaUpdateAttempts=0;
+    addFunaUpdate=async(id,text,files)=>{
+      window.__qaUpdateAttempts++;window.__qaUploadedPhotos=files.length;
+      await new Promise(resolve=>window.__qaUpdateResolve=resolve);return {};
+    };
+  }""")
+  page.get_by_role('button',name='Publicar actualización').click()
+  page.locator('#update-form').evaluate('(form)=>form.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}))')
+  assert page.evaluate('window.__qaUpdateAttempts')==1
+  page.evaluate("window.__qaUpdates([{id:'first-update',reportId:state.updatesPost,text:'Nueva instantánea durante el envío.',authorUid:state.user.uid,createdAt:Date.now()}])")
+  assert page.locator('#update-text').is_disabled()
+  page.evaluate('window.__qaUpdateResolve()')
+  page.wait_for_function('!document.querySelector("#update-text").disabled')
+  assert page.locator('#update-text').input_value()==''
+  assert page.locator('.update-selected-photo').count()==0
+  assert page.evaluate('window.__qaUploadedPhotos')==1
   # Un enlace inexistente finaliza con un estado claro.
   page.evaluate("firebaseEnabled=false;navigate('funa/no-existe')")
   assert page.get_by_role('heading',name='Publicación no disponible').is_visible()

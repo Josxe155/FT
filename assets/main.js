@@ -1,6 +1,6 @@
 import { videoPlayerMarkup, safeMediaFilename } from './media-ui.js';
 import { cantons, cantonMap } from './cantons.js';
-import { firebaseEnabled, initFirebase, loginGoogle, loginGuest, logoutFirebase, saveAlias, listenReports, loadMoreReports, hasMoreReports, getCantonTotals, listenReplies, addReport, realtimeMediaAvailable, loadEvidenceURL, clearEvidenceCache, flagReport, saveTikTok, deleteTikTok, listenTikTok, trackVisit, trackActivity, listenReactionSummary, setReaction, addNestedReply, editReplyText, deleteOwnReply, listenFunaUpdates, addFunaUpdate, listenCommentReactionSummary, setCommentReaction, fetchReportById, countMyReports } from './firebase-client.js';
+import { firebaseEnabled, initFirebase, loginGoogle, loginGuest, logoutFirebase, saveAlias, listenReports, loadMoreReports, hasMoreReports, getCantonTotals, listenReplies, addReport, realtimeMediaAvailable, loadEvidenceURL, clearEvidenceCache, flagReport, saveTikTok, deleteTikTok, listenTikTok, trackVisit, trackActivity, listenReactionSummary, setReaction, addNestedReply, editReplyText, deleteOwnReply, listenFunaUpdates, countFunaUpdates, addFunaUpdate, listenCommentReactionSummary, setCommentReaction, fetchReportById, countMyReports } from './firebase-client.js';
 const app = document.getElementById('app');
 const modal = document.getElementById('modal-root');
 const toasts = document.getElementById('toasts');
@@ -12,7 +12,11 @@ const state = {
 };
 let previewItems = [], previewIndex = 0, previewLoad = 0, previewLoading = false;
 let updateFiles = [], updateDraftText = '';
-let viewerReturnUpdates = false;
+let updateDraftReportId = '', updateSendingPost = '', updatesStatus = 'ready';
+let updatePhotoPreviews = [];
+let sharePostId = '';
+const updateCounts = new Map(), updateCountPending = new Set(), updateCountFailures = new Map();
+let updateCountObserver = null, updateCountEpoch = 0;
 let stopReports = () => { }, stopReplies = () => { }, stopTikTok = () => { }, stopPresence = () => { }, stopActivity = () => { }, stopUpdates = () => { };
 // La decisión de ver una funa sensible dura solo hasta salir de la sesión.
 const revealedSensitivePosts = new Set();
@@ -262,6 +266,7 @@ let lastRenderedHash = '';
 function requestRouteRender() { if (routeRenderPending)
     return; routeRenderPending = true; requestAnimationFrame(() => { routeRenderPending = false; render(); }); }
 function navigate(page) {
+    captureUpdateDraft();
     if (history.state?.funadosOverlay)
         history.replaceState(null, '', location.href);
     stopReplies();
@@ -348,7 +353,7 @@ function evidenceMarkup(r, updateId) {
     if (!items.length)
         return '';
     const key = updateId ? r.id + '-' + updateId : r.id;
-    return `<div class="report-images media-carousel ${items.length === 1 ? 'single' : ''}" data-carousel="${esc(key)}" role="region" aria-label="Evidencias adjuntas" tabindex="0"><div class="carousel-track">${items.map((item, i) => `<button class="image-open evidence-open carousel-slide" type="button" data-action="gallery-open" data-post="${esc(r.id)}" data-update="${esc(updateId || '')}" data-index="${i}" aria-label="Abrir evidencia ${i + 1}: ${esc(item.name)}">${item.type.startsWith('video/') ? '<span class="evidence-video-icon">▶</span><small>Reproducir vídeo</small>' : item.media ? `<img data-evidence-preview data-report="${esc(r.id)}" data-file="${esc(item.media.id)}" ${updateId ? `data-update="${esc(updateId)}"` : ''} alt="${esc(item.name)}" loading="lazy">` : `<img src="${esc(item.url)}" alt="Imagen adjunta" loading="lazy">`}</button>`).join('')}</div>${items.length > 1 ? `<div class="carousel-tools"><button type="button" data-carousel-dir="-1" aria-label="Evidencia anterior">‹</button><span data-carousel-count>1 / ${items.length}</span><button type="button" data-carousel-dir="1" aria-label="Evidencia siguiente">›</button></div><div class="carousel-dots">${items.map((_, i) => `<button type="button" data-carousel-index="${i}" aria-label="Ir a evidencia ${i + 1}" aria-current="${i === 0}"></button>`).join('')}</div>` : ''}</div>`;
+    return `<div class="report-images media-carousel ${items.length === 1 ? 'single' : ''}" data-carousel="${esc(key)}" role="region" aria-label="Evidencias adjuntas" tabindex="0"><div class="carousel-track">${items.map((item, i) => `<button class="image-open evidence-open carousel-slide" type="button" data-action="gallery-open" data-post="${esc(r.id)}" data-update="${esc(updateId || '')}" data-index="${i}" aria-label="Abrir evidencia ${i + 1}: ${esc(item.name)}">${item.type.startsWith('video/') ? '<span class="evidence-video-prompt"><span class="evidence-video-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7Z" fill="currentColor"/></svg></span><small>Reproducir vídeo</small></span>' : item.media ? `<img data-evidence-preview data-report="${esc(r.id)}" data-file="${esc(item.media.id)}" ${updateId ? `data-update="${esc(updateId)}"` : ''} alt="${esc(item.name)}" loading="lazy">` : `<img src="${esc(item.url)}" alt="Imagen adjunta" loading="lazy">`}</button>`).join('')}</div>${items.length > 1 ? `<div class="carousel-tools"><button type="button" data-carousel-dir="-1" aria-label="Evidencia anterior">‹</button><span data-carousel-count>1 / ${items.length}</span><button type="button" data-carousel-dir="1" aria-label="Evidencia siguiente">›</button></div><div class="carousel-dots">${items.map((_, i) => `<button type="button" data-carousel-index="${i}" aria-label="Ir a evidencia ${i + 1}" aria-current="${i === 0}"></button>`).join('')}</div>` : ''}</div>`;
 }
 async function previewAt(index) {
     if (index < 0 || index >= previewItems.length)
@@ -398,7 +403,7 @@ function reportCard(r) {
     const sensitive = r.sensitiveContent === true && galleryItems(r).length > 0;
     const concealed = sensitive && !revealedSensitivePosts.has(r.id);
     const badge = sensitive && !concealed ? `<div class="sensitive-showing"><span>${icons.eyeOff} Contenido sensible</span><button type="button" data-action="hide-sensitive" data-id="${esc(r.id)}">Ocultar contenido</button></div>` : '';
-    return `<article class="report-card"><div class="report-top">${tiktokAuthor(r)}<time>${formatDate(r.createdAt)}</time></div>${badge}<h2>${esc(r.title)}</h2><p class="report-copy">${esc(r.description)}</p>${concealed ? sensitiveGate(r.id) : evidenceMarkup(r)}<div class="reactions-bar" data-id="${esc(r.id)}" aria-label="Reacciones a la publicación">${reactionKinds.map(([kind, emoji, label]) => `<button class="react-button ${currentMyReaction(r.id) === kind ? 'react-selected' : ''}" type="button" data-action="react" data-id="${esc(r.id)}" data-kind="${kind}" aria-label="${label}" aria-pressed="${currentMyReaction(r.id) === kind}"><span class="react-emoji" aria-hidden="true">${emoji}</span><span class="react-label">${label}</span><span class="react-number">${currentReactionCounts(r.id)[kind]}</span></button>`).join('')}</div><div class="report-bottom"><button class="text-action" type="button" data-action="updates" data-id="${esc(r.id)}">${icons.clock} Actualizaciones</button><button class="text-action" type="button" data-action="thread" data-id="${esc(r.id)}" aria-expanded="${state.thread === r.id}" aria-controls="comments-${esc(r.id)}">${icons.reply} Comentarios${firebaseEnabled ? '' : ` · ${countR(r.id)}`}</button><button class="text-action" type="button" data-action="share" data-id="${esc(r.id)}">${icons.share} Compartir</button><button class="text-action subtle-action" type="button" data-action="flag" data-id="${esc(r.id)}" aria-label="Reportar esta publicación">${icons.flag} Reportar</button></div>${state.thread === r.id ? threadInline(r.id) : ''}</article>`;
+    return `<article class="report-card"><div class="report-top">${tiktokAuthor(r)}<div class="report-meta"><time>${formatDate(r.createdAt)}</time>${updateCounter(r)}</div></div>${badge}<h2>${esc(r.title)}</h2><p class="report-copy">${esc(r.description)}</p>${concealed ? sensitiveGate(r.id) : evidenceMarkup(r)}<div class="reactions-bar" data-id="${esc(r.id)}" aria-label="Reacciones a la publicación">${reactionKinds.map(([kind, emoji, label]) => `<button class="react-button ${currentMyReaction(r.id) === kind ? 'react-selected' : ''}" type="button" data-action="react" data-id="${esc(r.id)}" data-kind="${kind}" aria-label="${label}" aria-pressed="${currentMyReaction(r.id) === kind}"><span class="react-emoji" aria-hidden="true">${emoji}</span><span class="react-label">${label}</span><span class="react-number">${currentReactionCounts(r.id)[kind]}</span></button>`).join('')}</div><div class="report-bottom"><button class="text-action ${state.updatesPost === r.id ? 'action-active' : ''}" type="button" data-action="updates" data-id="${esc(r.id)}" aria-expanded="${state.updatesPost === r.id}" aria-controls="updates-${esc(r.id)}">${icons.clock} Actualizaciones</button><button class="text-action ${state.thread === r.id ? 'action-active' : ''}" type="button" data-action="thread" data-id="${esc(r.id)}" aria-expanded="${state.thread === r.id}" aria-controls="comments-${esc(r.id)}">${icons.reply} Comentarios${firebaseEnabled ? '' : ` · ${countR(r.id)}`}</button><button class="text-action" type="button" data-action="share" data-id="${esc(r.id)}">${icons.share} Compartir</button><button class="text-action subtle-action" type="button" data-action="flag" data-id="${esc(r.id)}" aria-label="Reportar esta publicación">${icons.flag} Reportar</button></div>${state.updatesPost === r.id ? updatesInline(r.id) : ''}${state.thread === r.id ? threadInline(r.id) : ''}</article>`;
 }
 function cantonView(slug) { const c = cantonMap[slug]; if (!c)
     return homeView(); state.canton = slug; const posts = allReports().filter(r => r.canton === slug && ['approved', 'pending'].includes(r.status)).sort((a, b) => state.sort === 'antiguas' ? a.createdAt - b.createdAt : b.createdAt - a.createdAt); return `<main class="main-area detail-area"><button type="button" class="back-link" data-action="nav" data-page="inicio">${icons.back} Todos los cantones</button><div class="canton-banner">${photo(c)}<div class="banner-overlay"></div><div class="banner-content"><span>CANTÓN</span><h1>${esc(c.name)}</h1><div class="banner-meta">${count(slug)} ${count(slug) === 1 ? 'funa publicada' : 'funas publicadas'}</div></div></div><div class="feed-toolbar"><h2>Funas</h2><div class="feed-actions"><label class="sort-control">Ordenar <select id="sort-posts" aria-label="Orden de las funas"><option value="recientes" ${state.sort === 'recientes' ? 'selected' : ''}>Recientes</option><option value="antiguas" ${state.sort === 'antiguas' ? 'selected' : ''}>Antiguas</option></select></label><button class="button-primary" type="button" data-action="compose">${icons.plus} Añadir funa</button></div></div><section class="feed" aria-label="Funas del cantón">${posts.length ? posts.map(reportCard).join('') : emptyView()}</section>${firebaseEnabled && hasMoreReports() ? '<div class="load-more-row"><button type="button" class="button-primary" data-action="load-more">Cargar más funas ${icons.arrow}</button></div>' : ''}</main>`; }
@@ -492,6 +497,9 @@ function renderInlineThread() {
     watchVisibleCommentReactions();
 }
 function toggleInlineThread(reportId) {
+    captureUpdateDraft();
+    stopUpdates();
+    state.updatesPost = null;
     const next = state.thread === reportId ? null : reportId;
     stopReplies();
     stopCommentReactionWatch();
@@ -507,12 +515,192 @@ function toggleInlineThread(reportId) {
     if (next)
         document.getElementById('comments-' + next)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
-function updatesDialog() {
-    const r = allReports().find(r => r.id === state.updatesPost && r.status === 'approved');
+function captureUpdateDraft() {
+    const input = app.querySelector('#update-text');
+    if (input && input.dataset.report === updateDraftReportId)
+        updateDraftText = input.value;
+}
+function resetUpdateFiles() { updatePhotoPreviews.forEach(url => URL.revokeObjectURL(url)); updatePhotoPreviews = []; updateFiles = []; }
+function knownUpdateCount(id) { return firebaseEnabled ? updateCounts.get(id)?.count : allUpdatesFor(id).length; }
+function updateCounter(r) { const n = knownUpdateCount(r.id); return `<button class="update-counter ${n ? 'has-updates' : ''}" type="button" data-action="updates" data-id="${esc(r.id)}" aria-label="Ver actualizaciones de esta funa" aria-expanded="${state.updatesPost === r.id}" aria-controls="updates-${esc(r.id)}">${icons.clock}<span data-update-count="${esc(r.id)}">${n ?? (updateCountFailures.has(r.id) ? '—' : '…')}</span><span>novedades</span></button>`; }
+function syncUpdateCounts(id) {
+    const n = knownUpdateCount(id);
+    if (n === undefined)
+        return;
+    app.querySelectorAll('[data-update-count]').forEach(el => { if (el.dataset.updateCount === id) {
+        el.textContent = String(n);
+        el.closest('.update-counter')?.classList.toggle('has-updates', n > 0);
+    } });
+    app.querySelectorAll('[data-update-total]').forEach(el => { if (el.dataset.updateTotal === id)
+        el.textContent = String(n); });
+}
+function watchUpdateCounts() {
+    updateCountObserver?.disconnect();
+    updateCountObserver = null;
+    if (!firebaseEnabled || !state.user)
+        return;
+    const uid = state.user.uid, epoch = updateCountEpoch;
+    const load = async (id) => {
+        if (!id || updateCountPending.has(id) || Date.now() - (updateCounts.get(id)?.at || updateCountFailures.get(id) || 0) < 60000)
+            return;
+        updateCountPending.add(id);
+        const started = Date.now();
+        try {
+            const count = await countFunaUpdates(id);
+            if (epoch === updateCountEpoch && state.user?.uid === uid && (updateCounts.get(id)?.at || 0) <= started) {
+                updateCounts.set(id, { count, at: Date.now() });
+                updateCountFailures.delete(id);
+                syncUpdateCounts(id);
+            }
+        }
+        catch {
+            if (epoch === updateCountEpoch) {
+                updateCountFailures.set(id, Date.now());
+                if (!updateCounts.has(id))
+                    app.querySelectorAll('[data-update-count]').forEach(el => { if (el.dataset.updateCount === id)
+                        el.textContent = '—'; });
+            }
+        }
+        finally {
+            if (epoch === updateCountEpoch)
+                updateCountPending.delete(id);
+        }
+    };
+    const nodes = [...app.querySelectorAll('[data-update-count]')];
+    if (typeof IntersectionObserver === 'undefined')
+        nodes.forEach(el => void load(el.dataset.updateCount || ''));
+    else {
+        updateCountObserver = new IntersectionObserver(entries => entries.forEach(entry => { if (entry.isIntersecting) {
+            updateCountObserver?.unobserve(entry.target);
+            void load(entry.target.dataset.updateCount || '');
+        } }), { rootMargin: '120px' });
+        nodes.forEach(el => updateCountObserver.observe(el));
+    }
+}
+function updateTimeline(r) {
+    const items = allUpdatesFor(r.id);
+    if (updatesStatus === 'loading' && !items.length)
+        return '<p class="updates-empty" role="status">Cargando actualizaciones…</p>';
+    if (updatesStatus === 'error')
+        return `<div class="updates-empty" role="status"><p>No se pudieron cargar las actualizaciones.</p><button type="button" class="comment-link" data-action="retry-updates" data-id="${esc(r.id)}">Reintentar</button></div>`;
+    return items.length ? items.map(u => `<article class="update-item update-message"><span class="update-avatar">${icons.user}</span><div class="update-message-body"><div class="update-message-heading"><strong>Autor anónimo</strong><span class="update-badge">AUTOR</span><time>${formatDateTime(u.createdAt)}</time></div>${u.text ? `<p>${esc(u.text)}</p>` : ''}${r.sensitiveContent === true && galleryItems(r, u.id).length && !revealedSensitivePosts.has(r.id) ? sensitiveGate(r.id) : evidenceMarkup(r, u.id)}</div></article>`).join('') : '<p class="updates-empty">Las novedades de esta publicación aparecerán aquí.</p>';
+}
+function selectedUpdatePhotos() { return updateFiles.map((file, i) => `<div class="update-selected-photo"><img src="${esc(updatePhotoPreviews[i])}" alt="Vista previa de ${esc(file.name)}"><span>${esc(file.name)}</span><button type="button" data-action="remove-update-image" data-index="${i}" aria-label="Quitar foto ${i + 1}" ${updateSendingPost === state.updatesPost ? 'disabled' : ''}>${icons.close}</button></div>`).join(''); }
+function updatesInline(id) {
+    const r = allReports().find(r => r.id === id && r.status === 'approved');
     if (!r)
         return '';
-    const mine = state.user?.uid === r.authorUid, items = allUpdatesFor(r.id);
-    return `<div class="modal-overlay" data-action="close-overlay"><section class="modal-panel thread-panel updates-panel" role="dialog" aria-modal="true" aria-label="Actualizaciones de la funa"><div class="modal-header"><div><span class="updates-kicker">SEGUIMIENTO</span><h2>Actualizaciones</h2></div><button class="icon-control" type="button" aria-label="Cerrar" data-action="close">${icons.close}</button></div><div class="update-context"><strong>${esc(r.title)}</strong><p>Nueva información del autor, sin perder el contexto de la publicación.</p></div><div class="thread-content update-timeline">${items.length ? items.map(u => `<article class="update-item update-message"><span class="update-avatar">${icons.user}</span><div class="update-message-body"><div class="update-message-heading"><strong>Autor anónimo</strong><span class="update-badge">AUTOR</span><time>${formatDateTime(u.createdAt)}</time></div><p>${esc(u.text)}</p>${r.sensitiveContent === true && galleryItems(r, u.id).length && !revealedSensitivePosts.has(r.id) ? sensitiveGate(r.id) : evidenceMarkup(r, u.id)}</div></article>`).join('') : '<p class="no-replies">Todavía no hay actualizaciones. Las novedades aparecerán aquí.</p>'}</div>${mine ? `<form id="update-form" class="reply-form update-composer"><label for="update-text">Añadir actualización</label><textarea id="update-text" name="update" rows="3" minlength="10" maxlength="1000" required placeholder="Comparte nueva información…"></textarea><div class="update-composer-bottom"><label class="update-attach" for="update-images">${icons.image} Adjuntar fotos<input id="update-images" type="file" accept="image/png,image/jpeg,image/webp" multiple class="visually-hidden"></label><small>Hasta 4 fotos · 5 MB cada una</small><button class="button-primary" type="submit">Publicar actualización ${icons.arrow}</button></div><p id="selected-update-images" class="selected-images">${esc(updateFiles.map(f => f.name).join(' · '))}</p></form>` : ''}</section></div>`;
+    const mine = state.user?.uid === r.authorUid, sending = updateSendingPost === id;
+    return `<section class="inline-updates updates-panel" id="updates-${esc(id)}" aria-label="Actualizaciones de la funa" tabindex="-1"><div class="inline-update-heading"><div><span class="updates-kicker">SEGUIMIENTO DE ESTA FUNA</span><h3>Actualizaciones <span data-update-total="${esc(id)}">${knownUpdateCount(id) ?? '…'}</span></h3></div><button type="button" class="inline-close" data-action="updates" data-id="${esc(id)}" aria-label="Cerrar actualizaciones">${icons.close}</button></div><div class="update-timeline" aria-live="polite" aria-relevant="additions text">${updateTimeline(r)}</div>${allUpdatesFor(id).length >= 100 ? '<p class="updates-window-note">Se muestran las 100 actualizaciones más recientes.</p>' : ''}${mine ? `<form id="update-form" class="reply-form update-composer" ${sending ? 'data-sending="1"' : ''}><label for="update-text">Añadir actualización</label><textarea id="update-text" data-report="${esc(id)}" name="update" rows="3" minlength="${updateFiles.length ? 0 : 10}" maxlength="1000" ${updateFiles.length ? '' : 'required'} placeholder="${updateFiles.length ? 'Descripción de las fotos (opcional)' : '¿Qué ha pasado desde la publicación?'}" ${sending ? 'disabled' : ''}>${esc(updateDraftText)}</textarea><div id="selected-update-images" class="selected-update-photos">${selectedUpdatePhotos()}</div><div class="update-composer-bottom"><button type="button" class="update-attach" data-action="attach-update" ${sending ? 'disabled' : ''}>${icons.image} Añadir fotos <span data-update-file-count>${updateFiles.length}/4</span></button><input id="update-images" type="file" accept="image/png,image/jpeg,image/webp" multiple class="visually-hidden" aria-label="Fotos de la actualización" ${sending ? 'disabled' : ''}><button class="button-primary" type="submit" ${sending ? 'disabled' : ''}>${sending ? 'Publicando…' : 'Publicar actualización'} ${icons.arrow}</button></div><small class="update-file-help">Hasta 4 fotos JPG, PNG o WebP · 5 MB por foto · solo el autor puede publicar novedades.</small></form>` : '<p class="updates-reader-note">Novedades publicadas por el autor de esta funa.</p>'}</section>`;
+}
+function renderInlineUpdates() {
+    if (!state.updatesPost)
+        return;
+    const r = allReports().find(r => r.id === state.updatesPost);
+    if (!r)
+        return;
+    const section = document.getElementById('updates-' + r.id), timeline = section?.querySelector('.update-timeline');
+    if (!timeline) {
+        render();
+        return;
+    }
+    timeline.innerHTML = updateTimeline(r);
+    syncUpdateCounts(r.id);
+    hydrateEvidence();
+}
+function refreshSelectedPhotos() {
+    const input = app.querySelector('#update-text');
+    if (input) {
+        input.required = !updateFiles.length;
+        input.minLength = updateFiles.length ? 0 : 10;
+        input.placeholder = updateFiles.length ? 'Descripción de las fotos (opcional)' : '¿Qué ha pasado desde la publicación?';
+    }
+    const host = app.querySelector('#selected-update-images');
+    if (host)
+        host.innerHTML = selectedUpdatePhotos();
+    const counter = app.querySelector('[data-update-file-count]');
+    if (counter)
+        counter.textContent = `${updateFiles.length}/4`;
+}
+function subscribeUpdates(id) {
+    stopUpdates();
+    updatesStatus = firebaseEnabled ? 'loading' : 'ready';
+    state.currentUpdates = [];
+    if (firebaseEnabled)
+        stopUpdates = listenFunaUpdates(id, items => {
+            if (state.updatesPost !== id)
+                return;
+            state.currentUpdates = items;
+            updatesStatus = 'ready';
+            if (items.length < 100)
+                updateCounts.set(id, { count: items.length, at: Date.now() });
+            else {
+                updateCounts.delete(id);
+                watchUpdateCounts();
+            }
+            renderInlineUpdates();
+        }, () => { if (state.updatesPost === id) {
+            updatesStatus = 'error';
+            renderInlineUpdates();
+        } });
+}
+function toggleUpdates(id) {
+    if (updateSendingPost) {
+        toast('Espera a que termine la actualización.');
+        return;
+    }
+    captureUpdateDraft();
+    const next = state.updatesPost === id ? null : id;
+    stopUpdates();
+    stopReplies();
+    stopCommentReactionWatch();
+    state.thread = null;
+    state.remoteReplies = [];
+    state.replyTarget = null;
+    state.editReplyId = null;
+    state.updatesPost = next;
+    if (next) {
+        if (updateDraftReportId !== next) {
+            resetUpdateFiles();
+            updateDraftText = '';
+            updateDraftReportId = next;
+        }
+        subscribeUpdates(next);
+    }
+    render();
+    if (next)
+        document.getElementById('updates-' + next)?.scrollIntoView({ behavior: state.prefs.animations ? 'smooth' : 'instant', block: 'nearest' });
+}
+function shareURL(id) { return location.origin + location.pathname + '#/funa/' + encodeURIComponent(id); }
+function shareDialog() {
+    const report = allReports().find(r => r.id === sharePostId);
+    if (!report)
+        return '';
+    return `<div class="modal-overlay" data-action="close-overlay"><section class="modal-panel compact share-panel" role="dialog" aria-modal="true" aria-label="Compartir publicación"><div class="modal-header"><div><span class="updates-kicker">COMPARTE EL ENLACE</span><h2>Compartir publicación</h2></div><button type="button" class="icon-control" data-action="close" aria-label="Cerrar">${icons.close}</button></div><div class="share-context">${icons.share}<strong>${esc(report.title)}</strong></div><label class="share-link-label" for="share-link">Enlace de esta funa</label><input id="share-link" class="share-link-input" value="${esc(shareURL(report.id))}" readonly><div class="share-buttons"><button class="button-primary" type="button" data-action="copy-link">${icons.share} Copiar enlace</button>${typeof navigator.share === 'function' ? `<button class="share-native" type="button" data-action="share-native">Más opciones ${icons.out}</button>` : ''}</div><p class="share-status" role="status">El enlace abre directamente esta publicación.</p></section></div>`;
+}
+async function copySharedLink() {
+    const input = modal.querySelector('#share-link');
+    if (!input)
+        return;
+    try {
+        if (navigator.clipboard?.writeText)
+            await navigator.clipboard.writeText(input.value);
+        else {
+            input.select();
+            if (!document.execCommand('copy'))
+                throw Error('copy');
+        }
+        const status = modal.querySelector('.share-status');
+        if (status)
+            status.textContent = 'Enlace copiado. Ya puedes compartirlo.';
+    }
+    catch {
+        input.focus();
+        input.select();
+        const status = modal.querySelector('.share-status');
+        if (status)
+            status.textContent = 'Selecciona y copia el enlace para compartirlo.';
+    }
 }
 function syncSensitiveControl() {
     const toggle = modal.querySelector('#post-sensitive');
@@ -531,12 +719,8 @@ function imageDialog() {
     return `<div class="modal-overlay" data-action="close-overlay"><section class="photo-panel gallery-viewer" role="dialog" aria-modal="true" aria-label="Evidencia ampliada"><div class="viewer-header"><span>${previewItems.length ? `${previewIndex + 1} / ${previewItems.length}` : 'Evidencia'}</span><strong>${esc(item?.name || 'Archivo adjunto')}</strong><button class="icon-control" data-action="close" aria-label="Cerrar">${icons.close}</button></div>${body}<div class="viewer-footer">${previewItems.length > 1 ? `<button type="button" data-action="viewer-prev" ${previewIndex === 0 ? 'disabled' : ''} aria-label="Evidencia anterior">‹ Anterior</button><button type="button" data-action="viewer-next" ${previewIndex === previewItems.length - 1 ? 'disabled' : ''} aria-label="Evidencia siguiente">Siguiente ›</button>` : ''}${!previewLoading && /^(blob:|data:(image|video)\/)/.test(state.previewImage) ? `<a href="${esc(state.previewImage)}" download="${esc(safeMediaFilename(item?.name || 'evidencia', state.previewMediaType))}" target="_blank" rel="noopener noreferrer">Descargar original</a>` : ''}</div></section></div>`;
 }
 function tikTokDialog() { return `<div class="modal-overlay" data-action="close-overlay"><section class="modal-panel compact" role="dialog" aria-modal="true" aria-label="Añadir cuenta de TikTok"><div class="modal-header"><h2>Añadir TikTok</h2><button type="button" class="icon-control" data-action="close" aria-label="Cerrar">${icons.close}</button></div><form id="tiktok-form" class="form-stack"><div class="field"><label for="tt-username">Nombre de usuario</label><p class="identity-notice">Al vincular TikTok, tu @usuario aparecerá públicamente como autor de todas tus funas. Es un enlace declarado por ti; no es una verificación oficial.</p><div class="prefix-input"><span>@</span><input id="tt-username" name="username" placeholder="usuario" autocomplete="off" minlength="2" maxlength="24" required></div></div><button class="button-primary fullwidth" type="submit">Añadir cuenta ${icons.arrow}</button></form></section></div>`; }
-function flagDialog() { return `<div class="modal-overlay" data-action="close-overlay"><section class="modal-panel compact" role="dialog" aria-modal="true" aria-label="Reportar publicación"><div class="modal-header"><h2>Reportar publicación</h2><button type="button" class="icon-control" data-action="close" aria-label="Cerrar">${icons.close}</button></div><form class="form-stack" id="flag-form"><div class="field"><label for="flag-reason">Motivo</label><select id="flag-reason" name="reason"><option>Acoso</option><option>Datos personales</option><option>Imágenes sin consentimiento</option><option>Otro</option></select></div><div class="field" id="flag-extra-wrap" hidden><label for="flag-details">Describe el motivo</label><textarea id="flag-details" name="details" minlength="10" maxlength="500" rows="4" placeholder="Explica por qué reportas esta funa..."></textarea></div><button class="button-primary fullwidth" type="submit">Enviar reporte</button></form></section></div>`; }
+function flagDialog() { const report = allReports().find(r => r.id === state.flagId); return `<div class="modal-overlay" data-action="close-overlay"><section class="modal-panel compact" role="dialog" aria-modal="true" aria-label="Reportar publicación"><div class="modal-header"><h2>Reportar publicación</h2><button type="button" class="icon-control" data-action="close" aria-label="Cerrar">${icons.close}</button></div><div class="flag-context"><span>${icons.flag}</span><div><strong>${esc(report?.title || 'Publicación')}</strong><p>Elige el motivo para que moderación pueda revisarlo.</p></div></div><form class="form-stack" id="flag-form"><div class="field"><label for="flag-reason">Motivo</label><select id="flag-reason" name="reason"><option>Acoso</option><option>Datos personales</option><option>Imágenes sin consentimiento</option><option>Otro</option></select></div><div class="field" id="flag-extra-wrap" hidden><label for="flag-details">Describe el motivo</label><textarea id="flag-details" name="details" minlength="10" maxlength="500" rows="4" placeholder="Explica por qué reportas esta funa..."></textarea></div><button class="button-primary fullwidth" type="submit">Enviar reporte</button></form></section></div>`; }
 function renderModal() {
-    const updateInput = modal.querySelector('#update-text');
-    if (updateInput)
-        updateDraftText = updateInput.value;
-    const updateDraft = updateDraftText;
     const editDraft = modal.querySelector('#edit-reply-text')?.value;
     const activeId = document.activeElement?.id;
     const currentEdit = modal.querySelector('#edit-reply-form')?.getAttribute('data-id');
@@ -546,21 +730,19 @@ function renderModal() {
         if (document.pictureInPictureElement === oldVideo)
             void document.exitPictureInPicture().catch(() => { });
     }
-    modal.innerHTML = state.dialogue === 'compose' ? composerDialog() : state.dialogue === 'tiktok' ? tikTokDialog() : state.dialogue === 'flag' ? flagDialog() : state.dialogue === 'guest' ? guestDialog() : state.dialogue === 'image' ? imageDialog() : state.dialogue === 'updates' ? updatesDialog() : '';
+    modal.innerHTML = state.dialogue === 'compose' ? composerDialog() : state.dialogue === 'tiktok' ? tikTokDialog() : state.dialogue === 'flag' ? flagDialog() : state.dialogue === 'guest' ? guestDialog() : state.dialogue === 'image' ? imageDialog() : state.dialogue === 'share' ? shareDialog() : '';
     document.body.classList.toggle('modal-open', Boolean(state.dialogue));
     const refill = (id, value) => { const el = modal.querySelector('#' + id); if (el && value !== undefined) {
         el.value = value;
         if (activeId === id)
             el.focus();
     } };
-    if (state.dialogue === 'updates' && updateDraft)
-        refill('update-text', updateDraft);
     if (currentEdit === state.editReplyId && editDraft !== undefined)
         refill('edit-reply-text', editDraft);
     syncSensitiveControl();
     hydrateEvidence();
 }
-function render() { lastRenderedHash = location.hash; if (!state.user) {
+function render() { captureUpdateDraft(); lastRenderedHash = location.hash; if (!state.user) {
     app.innerHTML = loginView();
     renderModal();
     return;
@@ -578,8 +760,8 @@ function render() { lastRenderedHash = location.hash; if (!state.user) {
         if (activeId === 'edit-reply-text')
             field.focus();
     }
-} watchVisibleReactions(); watchVisibleCommentReactions(); hydrateEvidence(); }
-function setUser(user) { postLookups.clear(); finishedPostLookups.clear(); myReportCountRemote = null; revealedSensitivePosts.clear(); if (!user)
+} watchVisibleReactions(); watchVisibleCommentReactions(); watchUpdateCounts(); hydrateEvidence(); }
+function setUser(user) { updateCountEpoch++; updateCounts.clear(); updateCountPending.clear(); updateCountFailures.clear(); updateCountObserver?.disconnect(); resetUpdateFiles(); updateDraftText = ''; updateDraftReportId = ''; postLookups.clear(); finishedPostLookups.clear(); myReportCountRemote = null; revealedSensitivePosts.clear(); if (!user)
     clearEvidenceCache(); if (user?.isAnonymous)
     user = { ...user, alias: read(KEY.alias, user.alias || 'Invitado') }; state.user = user; state.remoteReports = []; state.remoteReplies = []; state.cantonTotals = {}; state.currentUpdates = []; state.commentReactions = {}; state.myCommentReactions = {}; state.updatesPost = null; state.replyTarget = null; state.editReplyId = null; stopUpdates(); stopCommentReactionWatch(); state.reactions = {}; state.myReactions = {}; reactionObserver?.disconnect(); reactionObserver = null; stopReactionListeners.forEach(stop => stop()); stopReactionListeners = []; stopReports(); stopReplies(); stopTikTok(); stopPresence(); stopActivity(); if (!user) {
     state.dialogue = null;
@@ -688,14 +870,7 @@ finally {
 function close() { if (modal.querySelector('form[data-sending="1"]')) {
     toast('Espera a que termine la publicación.');
     return;
-} if (state.dialogue === 'image' && viewerReturnUpdates && state.updatesPost) {
-    viewerReturnUpdates = false;
-    previewLoad++;
-    previewLoading = false;
-    state.dialogue = 'updates';
-    renderModal();
-    return;
-} stopUpdates(); previewLoad++; previewLoading = false; updateFiles = []; updateDraftText = ''; state.dialogue = null; state.updatesPost = null; state.flagId = null; state.flagReplyId = null; state.imageFiles = []; renderModal(); }
+} previewLoad++; previewLoading = false; state.dialogue = null; state.flagId = null; state.flagReplyId = null; state.imageFiles = []; renderModal(); }
 function checkImages(files) {
     if (files.length > 10)
         return 'Puedes adjuntar hasta 10 evidencias en total.';
@@ -898,16 +1073,18 @@ async function removeOwnComment(id) {
     }
 }
 async function sendUpdate(form) {
-    if (!state.user || !state.updatesPost || form.dataset.sending === '1')
+    if (!state.user || !state.updatesPost || form.dataset.sending === '1' || updateSendingPost)
         return;
     const report = allReports().find(r => r.id === state.updatesPost && r.status === 'approved');
     if (!report || report.authorUid !== state.user.uid)
         return;
     const text = String(new FormData(form).get('update') || '').trim();
-    if (text.length < 10 || text.length > 1000 || unsupportedContent(text)) {
-        toast('La actualización debe tener entre 10 y 1000 caracteres, sin datos personales de contacto.', 'bad');
+    if ((text.length < 10 && !updateFiles.length) || text.length > 1000 || unsupportedContent(text)) {
+        toast('Escribe entre 10 y 1000 caracteres o adjunta fotos. No incluyas datos personales de contacto.', 'bad');
         return;
     }
+    const user = state.user, files = [...updateFiles];
+    updateSendingPost = report.id;
     const submit = form.querySelector('button[type=submit]');
     if (submit) {
         submit.disabled = true;
@@ -918,20 +1095,32 @@ async function sendUpdate(form) {
     let warning = '';
     try {
         if (firebaseEnabled) {
-            const result = await addFunaUpdate(report.id, text, [...updateFiles]);
+            const result = await addFunaUpdate(report.id, text, files);
             warning = result.warning || '';
         }
         else {
             const u = { id: crypto.randomUUID(), reportId: report.id, text, authorUid: state.user.uid, createdAt: Date.now(), media: [] };
-            for (const file of updateFiles)
+            for (const file of files)
                 u.media.push({ id: String(u.media.length), ownerUid: state.user.uid, name: file.name, type: file.type, size: file.size, chunks: Math.ceil(file.size / (48 * 1024)), localUrl: URL.createObjectURL(file) });
             save(KEY.updates, [...localUpdates(), u]);
         }
-        updateFiles = [];
-        updateDraftText = '';
-        form.reset();
-        delete form.dataset.sending;
-        renderModal();
+        if (state.user?.uid === user.uid && updateDraftReportId === report.id) {
+            resetUpdateFiles();
+            updateDraftText = '';
+            const input = app.querySelector('#update-text');
+            if (input)
+                input.value = '';
+            refreshSelectedPhotos();
+        }
+        if (state.updatesPost === report.id) {
+            if (!firebaseEnabled)
+                renderInlineUpdates();
+            else {
+                updateCounts.delete(report.id);
+                watchUpdateCounts();
+            }
+        }
+        syncUpdateCounts(report.id);
         toast(warning || 'Actualización publicada con fecha.', warning ? 'bad' : 'ok');
     }
     catch (e) {
@@ -941,11 +1130,22 @@ async function sendUpdate(form) {
             submit.textContent = 'Publicar actualización';
     }
     finally {
+        updateSendingPost = '';
         delete form.dataset.sending;
+        const current = app.querySelector('#update-form');
+        if (current && state.updatesPost === report.id) {
+            delete current.dataset.sending;
+            current.querySelectorAll('input,textarea,button').forEach(el => el.disabled = false);
+            const button = current.querySelector('button[type=submit]');
+            if (button)
+                button.textContent = 'Publicar actualización';
+        }
+        if (state.updatesPost === report.id)
+            syncUpdateCounts(report.id);
     }
 }
 async function sendFlag(form) {
-    if (!state.flagId || !state.user)
+    if (!state.flagId || !state.user || form.dataset.sending === '1')
         return;
     const data = new FormData(form), reason = String(data.get('reason') || ''), details = String(data.get('details') || '').trim();
     if (!['Acoso', 'Datos personales', 'Imágenes sin consentimiento', 'Otro'].includes(reason))
@@ -955,8 +1155,8 @@ async function sendFlag(form) {
         return;
     }
     const btn = form.querySelector('button[type=submit]');
-    if (btn)
-        btn.disabled = true;
+    form.dataset.sending = '1';
+    form.querySelectorAll('input,textarea,select,button').forEach(el => el.disabled = true);
     try {
         if (firebaseEnabled)
             await flagReport(state.flagId, reason, state.user, state.flagReplyId, details);
@@ -967,13 +1167,16 @@ async function sendFlag(form) {
             all.push({ id: state.flagId, uid: state.user.uid, replyId: state.flagReplyId || null, reason, details, date: Date.now() });
             save('funados_todos_flags_v3', all);
         }
+        delete form.dataset.sending;
         close();
         toast('Reporte enviado.');
     }
     catch (e) {
         toast(e?.message || 'No se pudo enviar.', 'bad');
-        if (btn)
-            btn.disabled = false;
+    }
+    finally {
+        delete form.dataset.sending;
+        form.querySelectorAll('input,textarea,select,button').forEach(el => el.disabled = false);
     }
 }
 async function sendTiktok(form) { const user = String(new FormData(form).get('username') || '').trim().replace(/^@/, ''); if (!/^[a-zA-Z0-9._]{2,24}$/.test(user)) {
@@ -1010,9 +1213,8 @@ document.addEventListener('click', async (e) => {
         return;
     const a = el.dataset.action || '';
     if (a === 'gallery-open') {
-        if (modal.querySelector('form[data-sending="1"]'))
+        if (modal.querySelector('form[data-sending="1"]') || updateSendingPost)
             return;
-        viewerReturnUpdates = state.dialogue === 'updates';
         const r = allReports().find(p => p.id === el.dataset.post);
         if (r) {
             previewItems = galleryItems(r, el.dataset.update || undefined);
@@ -1026,7 +1228,7 @@ document.addEventListener('click', async (e) => {
         return;
     }
     if (a === 'reveal-sensitive') {
-        if (modal.querySelector('form[data-sending="1"]'))
+        if (modal.querySelector('form[data-sending="1"]') || updateSendingPost)
             return;
         const id = el.dataset.id || '';
         const post = allReports().find(r => r.id === id && ['approved', 'pending'].includes(r.status));
@@ -1037,7 +1239,7 @@ document.addEventListener('click', async (e) => {
         return;
     }
     if (a === 'hide-sensitive') {
-        if (modal.querySelector('form[data-sending="1"]'))
+        if (modal.querySelector('form[data-sending="1"]') || updateSendingPost)
             return;
         const id = el.dataset.id || '';
         revealedSensitivePosts.delete(id);
@@ -1127,30 +1329,10 @@ document.addEventListener('click', async (e) => {
         renderModal();
     }
     else if (a === 'share') {
-        const post = allReports().find(r => r.id === el.dataset.id);
-        if (post) {
-            const url = location.origin + location.pathname + '#/funa/' + encodeURIComponent(post.id);
-            try {
-                if (navigator.share) {
-                    await navigator.share({ title: post.title, text: 'Mira esta publicación en Funados Todos', url });
-                    toast('Enlace compartido.');
-                }
-                else {
-                    await navigator.clipboard.writeText(url);
-                    toast('Enlace copiado.');
-                }
-            }
-            catch (err) {
-                if (err?.name !== 'AbortError')
-                    try {
-                        await navigator.clipboard.writeText(url);
-                        toast('Enlace copiado.');
-                    }
-                    catch {
-                        window.prompt('Copia este enlace:', url);
-                    }
-            }
-        }
+        sharePostId = el.dataset.id || '';
+        state.dialogue = 'share';
+        pushOverlayHistory();
+        renderModal();
     }
     else if (a === 'reply-to') {
         state.replyTarget = el.dataset.id || null;
@@ -1175,20 +1357,37 @@ document.addEventListener('click', async (e) => {
         await removeOwnComment(el.dataset.id || '');
     else if (a === 'delete-tiktok')
         await removeTikTok();
-    else if (a === 'updates') {
-        stopUpdates();
-        updateFiles = [];
-        updateDraftText = '';
-        state.replyTarget = null;
-        state.editReplyId = null;
-        state.updatesPost = el.dataset.id || null;
-        state.currentUpdates = [];
-        state.dialogue = 'updates';
-        pushOverlayHistory();
-        if (firebaseEnabled)
-            stopUpdates = listenFunaUpdates(state.updatesPost, v => { state.currentUpdates = v; if (state.dialogue === 'updates' && !modal.querySelector('form[data-sending="1"]'))
-                renderModal(); });
-        renderModal();
+    else if (a === 'updates')
+        toggleUpdates(el.dataset.id || '');
+    else if (a === 'retry-updates') {
+        subscribeUpdates(el.dataset.id || '');
+        renderInlineUpdates();
+    }
+    else if (a === 'attach-update')
+        app.querySelector('#update-images')?.click();
+    else if (a === 'remove-update-image') {
+        if (updateSendingPost)
+            return;
+        const i = Number(el.dataset.index);
+        if (Number.isInteger(i) && i >= 0 && i < updateFiles.length) {
+            URL.revokeObjectURL(updatePhotoPreviews[i]);
+            updatePhotoPreviews.splice(i, 1);
+            updateFiles.splice(i, 1);
+            refreshSelectedPhotos();
+        }
+    }
+    else if (a === 'copy-link')
+        await copySharedLink();
+    else if (a === 'share-native') {
+        const report = allReports().find(r => r.id === sharePostId);
+        if (report && typeof navigator.share === 'function')
+            try {
+                await navigator.share({ title: report.title, text: 'Mira esta publicación en Funados Todos', url: shareURL(report.id) });
+            }
+            catch (error) {
+                if (error?.name !== 'AbortError')
+                    await copySharedLink();
+            }
     }
     else if (a === 'flag') {
         state.flagId = el.dataset.id || null;
@@ -1226,17 +1425,17 @@ document.addEventListener('change', e => {
     const el = e.target;
     if (el.id === 'update-images') {
         const files = Array.from(el.files || []);
-        const error = files.length > 4 ? 'Adjunta hasta cuatro fotos.' : checkImages(files) || (files.some(f => !f.type.startsWith('image/')) ? 'Solo se permiten fotos en las actualizaciones.' : '');
-        if (error) {
+        if (!files.length)
+            return;
+        const next = [...updateFiles, ...files], error = next.length > 4 ? 'Adjunta hasta cuatro fotos.' : checkImages(next) || (next.some(f => !['image/png', 'image/jpeg', 'image/webp'].includes(f.type)) ? 'Solo se permiten fotos JPG, PNG o WebP en las actualizaciones.' : '');
+        if (error)
             toast(error, 'bad');
-            el.value = '';
-            updateFiles = [];
+        else {
+            updateFiles = next;
+            updatePhotoPreviews.push(...files.map(file => URL.createObjectURL(file)));
+            refreshSelectedPhotos();
         }
-        else
-            updateFiles = files;
-        const label = document.getElementById('selected-update-images');
-        if (label)
-            label.textContent = updateFiles.map(f => f.name).join(' · ');
+        el.value = '';
         return;
     }
     if (el.id === 'flag-reason') {
@@ -1274,7 +1473,10 @@ document.addEventListener('change', e => {
         preview.textContent = state.imageFiles.length ? state.imageFiles.map(f => f.name).join(' · ') : '';
     syncSensitiveControl();
 });
-document.addEventListener('input', e => { const el = e.target; if (el.id !== 'search')
+document.addEventListener('input', e => { const el = e.target; if (el.id === 'update-text') {
+    updateDraftText = el.value;
+    return;
+} if (el.id !== 'search')
     return; state.search = el.value; const grid = document.getElementById('cantons-grid'); if (grid) {
     const q = el.value.trim().toLocaleLowerCase('es');
     grid.innerHTML = rankedCantons().filter(c => c.name.toLocaleLowerCase('es').includes(q)).map(cantonCard).join('') || '<p class="search-empty">Sin resultados.</p>';
@@ -1294,6 +1496,8 @@ document.addEventListener('keydown', e => { if (state.dialogue === 'image' && !(
     }
     else if (state.dialogue)
         close();
+    else if (state.updatesPost)
+        toggleUpdates(state.updatesPost);
     else if (state.thread)
         toggleInlineThread(state.thread);
     return;
@@ -1310,12 +1514,18 @@ window.addEventListener('popstate', () => { if (state.menu) {
 }
 else if (state.dialogue)
     close();
+else if (state.updatesPost)
+    toggleUpdates(state.updatesPost);
 else if (state.thread)
     toggleInlineThread(state.thread);
 else if (location.hash !== lastRenderedHash)
     requestRouteRender(); });
 window.addEventListener('hashchange', () => { if (location.hash === lastRenderedHash)
     return; state.menu = false; state.search = ''; requestRouteRender(); });
+setInterval(() => { if (document.visibilityState === 'visible' && state.user && !state.dialogue)
+    watchUpdateCounts(); }, 65000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && state.user)
+    watchUpdateCounts(); });
 applyPrefs();
 render();
 initFirebase(user => { if (user)

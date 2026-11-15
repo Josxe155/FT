@@ -49,3 +49,9 @@ npx -y firebase-tools@latest emulators:exec --only auth,firestore,database --pro
 ```
 
 Los resultados observados están en `qa/RESULTADOS.txt`. Las advertencias de permiso denegado de las pruebas negativas son esperadas.
+
+## Seguimiento integrado y acciones
+
+Las novedades se despliegan debajo de su funa desde el contador junto a la fecha o desde la acción Actualizaciones. No se repite la publicación dentro del hilo. El autor puede añadir hasta cuatro fotos con miniaturas y retirada individual, incluso sin texto; los lectores ven las novedades sin formulario. Los cambios remotos conservan el borrador, los archivos y el bloqueo de envío. Comentarios y seguimiento se alternan como secciones de una tarjeta.
+
+Compartir muestra el enlace directo con copia y opciones nativas; Reportar incluye el contexto y evita envíos duplicados. Los botones y el texto de la miniatura de vídeo forman un grupo centrado; los controles del reproductor usan SVG y se comprueban geométricamente en móvil y escritorio. Se añadieron pruebas de las consultas agregadas del contador y de las fotos sin texto, manteniendo los permisos de propietario y límites existentes.

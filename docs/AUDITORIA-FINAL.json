@@ -1,6 +1,6 @@
 {
   "score": 4,
-  "summary": "Revisión final de Auth, Firestore y Realtime Database. Las pruebas verifican propiedad, privilegios del administrador verificado, campos permitidos, límites de adjuntos, consultas del cliente y bloqueo de evidencias. Se reforzaron los tamaños de imágenes, los detalles de denuncias y la fecha de primera visita. No se detectaron accesos no autorizados en los casos ejecutados; no es una garantía de ausencia de vulnerabilidades.",
+  "summary": "Revisión final de Auth, Firestore y Realtime Database. Las pruebas verifican propiedad, privilegios del administrador verificado, campos permitidos, límites de adjuntos, consultas del cliente y bloqueo de evidencias. Se reforzaron los tamaños de imágenes, los detalles de denuncias y la fecha de primera visita. No se detectaron accesos no autorizados en los casos ejecutados; no es una garantía de ausencia de vulnerabilidades. Revisión de seguimiento integrado: contador por agregación, consulta descendente de las últimas 100 novedades, fotos sin texto y rechazo de actualizaciones totalmente vacías. Autoría y límites de cuatro fotos/5 MiB se mantienen.",
   "findings": [
     {
       "check": "Storage Abuse / Resource Exhaustion",

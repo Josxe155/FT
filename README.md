@@ -186,3 +186,7 @@ Funados-Todos/
 Comparte información responsable. Evita amenazas, datos privados y acusaciones no verificadas.
 
 </div>
+
+### Seguimiento de publicaciones
+
+El contador junto a la fecha abre las actualizaciones debajo de esa funa. El autor puede añadir texto y hasta cuatro fotos, incluso publicar solo imágenes. Los demás usuarios pueden leer y ampliar las fotos. Las acciones de comentarios, compartir y reportar tienen controles dedicados. Consulta [multimedia y seguimiento](docs/MULTIMEDIA.md) para límites y comprobaciones.

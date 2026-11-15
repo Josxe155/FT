@@ -4,7 +4,9 @@ Las evidencias de cada publicación se muestran en un carrusel con desplazamient
 
 Los vídeos tienen controles propios de reproducción, pausa, avance, volumen, silencio y velocidad. Pantalla completa y ventana flotante dependen de lo que admita el navegador. No hay autoplay. Cerrar el visor o cambiar de archivo detiene el vídeo. Algunos MOV requieren códecs que no están presentes en todos los navegadores; el reproductor informa del error y permite descargar el original.
 
-Las actualizaciones del autor usan mensajes con fecha, insignia de autor y adjuntos. Admiten de una a cuatro fotos JPG, PNG o WebP, con un máximo de 5 MB por archivo. El texto conserva el límite de 10 a 1000 caracteres y no sustituye la descripción original. Al ampliar una foto se conserva el borrador; al cerrar se regresa a las actualizaciones.
+Las actualizaciones del autor se despliegan debajo de su propia publicación, con fecha, insignia de autor y adjuntos. El contador junto a la fecha abre el mismo hilo; comentarios y novedades se alternan sin duplicar la publicación. El contador usa agregaciones autorizadas por Firestore, solo se consulta para tarjetas visibles y se revisa cada 65 segundos con la página visible; el hilo abierto recibe cambios en tiempo real. Se muestran las 100 novedades más recientes, ordenadas cronológicamente, y el contador refleja el total.
+
+El autor dispone de un botón «Añadir fotos», miniaturas, contador de selección y retirada individual. Se admiten hasta cuatro fotos JPG, PNG o WebP de 5 MB por archivo. Puede publicar solo fotos, texto con fotos o texto de 10 a 1000 caracteres sin adjuntos; con fotos, el texto es opcional y tiene un máximo de 1000 caracteres. Los visitantes ven el seguimiento sin formulario de publicación. Al ampliar una foto se conserva el borrador y el hilo permanece abierto debajo del visor. Las notificaciones remotas actualizan solo la lista, conservando los archivos seleccionados y el formulario incluso durante el envío.
 
 ## Datos y permisos
 
@@ -21,3 +23,9 @@ Las descargas simultáneas de una miniatura y del visor se comparten. La caché 
 `qa/test_media.py` prueba vídeo WebM real, controles, carrusel, teclado, fotos de actualizaciones y borradores en 320, 390 y 1440 px. Requiere FFmpeg, Pillow, Playwright y Chromium, más la compilación servida en el puerto 5000.
 
 `qa/test_media_adapter.mjs` verifica concurrencia de descargas, tratamiento de URLs antiguas y liberación de caché. Las pruebas de reglas cubren cuatro fotos válidas, suplantación de autor, cinco adjuntos, vídeos no admitidos en actualizaciones, tamaño excesivo y bloqueo por moderación.
+
+## Acciones de cada funa
+
+Las acciones tienen una distribución uniforme y estado activo para comentarios y actualizaciones. Compartir abre una tarjeta con el enlace directo, botón para copiar y opciones nativas cuando están disponibles; cancelar no envía nada. Reportar muestra el contexto de la funa y bloquea envíos duplicados mientras espera respuesta.
+
+Los botones del reproductor usan SVG alineados al centro. La miniatura de vídeo agrupa el icono y el rótulo en un mismo bloque centrado, sin padding que desplace la figura. `qa/test_inline_updates.py` comprueba la geometría a 320, 390, 768 y 1440 píxeles, los hilos por publicación, el selector real de fotos, las miniaturas, la publicación sin texto, el lector, compartir y reportar.

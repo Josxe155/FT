@@ -358,12 +358,16 @@ export async function deleteOwnReply(reportId:string,replyId:string) {
 
 /** Actualizaciones añadidas por el autor: no sustituyen al texto original. */
 export type FunaUpdate = {id:string;reportId:string;text:string;authorUid:string;createdAt:number;media?:EvidenceMeta[]};
-export function listenFunaUpdates(reportId:string, onData:(list:FunaUpdate[])=>void){
-  if(!modules)return ()=>{};
-  const f=modules.firestore;
-  return f.onSnapshot(f.query(f.collection(db,'reports',reportId,'updates'),f.orderBy('createdAt','asc'),f.limit(100)),
-    (snap:any)=>onData(snap.docs.map((d:any)=>({id:d.id,reportId,...d.data(),createdAt:d.data().createdAt?.toMillis?.()||Date.now()}))),
-    (err:any)=>console.warn('No se pudieron obtener las actualizaciones:',err));
+export async function countFunaUpdates(reportId:string):Promise<number>{
+ if(!modules)return 0;
+ const f=modules.firestore,snapshot=await f.getCountFromServer(f.query(f.collection(db,'reports',reportId,'updates')));
+ return snapshot.data().count;
+}
+export function listenFunaUpdates(reportId:string,onData:(list:FunaUpdate[])=>void,onError:(error:any)=>void=()=>{}){
+ if(!modules)return ()=>{};
+ const f=modules.firestore;
+ return f.onSnapshot(f.query(f.collection(db,'reports',reportId,'updates'),f.orderBy('createdAt','desc'),f.limit(100)),
+  (snap:any)=>onData(snap.docs.filter((d:any)=>!d.metadata?.hasPendingWrites||d.data().createdAt!=null).map((d:any)=>({id:d.id,reportId,...d.data(),createdAt:d.data().createdAt?.toMillis?.()||Date.now()})).sort((a:FunaUpdate,b:FunaUpdate)=>a.createdAt-b.createdAt)),onError);
 }
 export async function addFunaUpdate(reportId:string,text:string,files:File[]=[]):Promise<{warning?:string}> {
  if(!modules||!auth?.currentUser)throw new Error('Inicia sesión para publicar.');

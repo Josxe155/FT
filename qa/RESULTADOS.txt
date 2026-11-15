@@ -137,3 +137,27 @@ Revisión final: sensibilidad multimedia y formularios de comentarios
 - Se retiraron la publicación, adjuntos, comentarios y las dos identidades
   anónimas creadas por la prueba; no se borraron cuentas ni contenido reales.
 - Deploy Hosting/Firestore/RTDB completado en funados-todos.
+
+Seguimiento integrado y acciones de publicaciones
+- PASS tipos TypeScript y compilación.
+- PASS novedades 320/390/768/1440: contador por funa, desplegable propio,
+  lectura sin formulario para terceros, selector real de fotos, miniaturas,
+  quitar/añadir fotos, publicación solo con imágenes, visor y compartir/copiar.
+- PASS vídeo: icono y texto centrados geométricamente en la miniatura;
+  controles SVG centrados; reproducción, pausa, avance, volumen y pantalla
+  completa en 320/390/1440. Dashboard mantiene el mismo reproductor.
+- PASS formularios: los snapshots de seguimiento conservan el mismo textarea,
+  borrador y archivos seleccionados incluso durante el envío; evita duplicados.
+- PASS comentarios, sensibilidad 320/390/768/1440 y dashboard 390/1440.
+- PASS emuladores Auth/Firestore/RTDB: autoría, privacidad, límites y mantenimiento.
+- PASS reglas para agregación del contador y consulta descendente de las últimas
+  100 novedades; sin sesión denegadas. Se admiten fotos sin texto y se rechazan
+  actualizaciones vacías. RTDB conserva cuatro fotos y cinco MiB por archivo.
+- PASS deploy Hosting/Firestore/RTDB. Sin nuevas identidades IAM ni facturación.
+- PASS producción: contador 0→1, novedades desplegables en la funa correcta,
+  actualización con cuatro fotos sin texto, lectura desde otro invitado sin
+  formulario de autor, visor, compartir y vídeo. Sin FirebaseError de permisos.
+- La prueba retiró su publicación, archivos, comentarios y ambas cuentas de QA.
+  No se modificó ni eliminó contenido de usuarios reales.
+- Dos fotografías de cantones de proveedores externos respondieron 503, como
+  en la revisión anterior; el fondo de respaldo sigue disponible.

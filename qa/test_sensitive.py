@@ -78,7 +78,7 @@ with sync_playwright() as p:
   assert page.locator('.update-message .carousel-slide').count()==0
   page.locator('.update-message').get_by_role('button',name='Ver contenido').click()
   assert page.locator('.update-message .carousel-slide').count()==1
-  page.locator('#modal-root [data-action=close]').click()
+  page.get_by_role('button',name='Cerrar actualizaciones').click()
   page.locator('.report-card').first.get_by_role('button',name='Ocultar contenido').click()
   # Una funa normal debe seguir viéndose sin aviso.
   page.get_by_role('button',name='Añadir funa').first.click()

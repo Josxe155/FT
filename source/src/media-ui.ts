@@ -2,6 +2,8 @@
 const hydratedPlayers=new WeakSet<HTMLElement>(),hydratedCarousels=new WeakSet<HTMLElement>();
 const galleryPositions=new Map<string,number>();
 const clock=(seconds:number)=>Number.isFinite(seconds)?`${Math.floor(seconds/60)}:${String(Math.floor(seconds%60)).padStart(2,'0')}`:'0:00';
+const mediaIcon=(body:string)=>`<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+const videoIcons={play:mediaIcon('<path d="m9 5 11 7-11 7Z" fill="currentColor" stroke="none"/>'),pause:mediaIcon('<path d="M8 5v14M16 5v14" stroke-width="3"/>'),volume:mediaIcon('<path d="m11 4-6 5H2v6h3l6 5Z"/><path d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>'),muted:mediaIcon('<path d="m11 4-6 5H2v6h3l6 5Z"/><path d="m16 9 6 6m0-6-6 6"/>'),fullscreen:mediaIcon('<path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/>'),pip:mediaIcon('<rect x="3" y="4" width="18" height="16" rx="2"/><rect x="12" y="11" width="7" height="6" rx="1" fill="currentColor" stroke="none"/>')};
 function initMediaUI(){
  document.querySelectorAll<HTMLElement>('[data-carousel]').forEach(gallery=>{
   if(hydratedCarousels.has(gallery))return;hydratedCarousels.add(gallery);
@@ -28,8 +30,8 @@ function initMediaUI(){
   if(hydratedPlayers.has(shell))return;hydratedPlayers.add(shell);
   const video=shell.querySelector('video')!,play=shell.querySelector<HTMLButtonElement>('[data-video-play]')!,mute=shell.querySelector<HTMLButtonElement>('[data-video-mute]')!,seek=shell.querySelector<HTMLInputElement>('[data-video-seek]')!,volume=shell.querySelector<HTMLInputElement>('[data-video-volume]')!,time=shell.querySelector<HTMLElement>('[data-video-time]')!,status=shell.querySelector<HTMLElement>('[data-video-status]')!;
   const sync=()=>{
-   play.textContent=video.paused?'▶':'Ⅱ';play.setAttribute('aria-label',video.paused?'Reproducir vídeo':'Pausar vídeo');
-   mute.textContent=video.muted||video.volume===0?'🔇':'🔊';mute.setAttribute('aria-label',video.muted?'Activar sonido':'Silenciar');
+   play.innerHTML=video.paused?videoIcons.play:videoIcons.pause;play.setAttribute('aria-label',video.paused?'Reproducir vídeo':'Pausar vídeo');
+   mute.innerHTML=video.muted||video.volume===0?videoIcons.muted:videoIcons.volume;mute.setAttribute('aria-label',video.muted?'Activar sonido':'Silenciar');
    const duration=Number.isFinite(video.duration)?video.duration:0;
    seek.disabled=duration<=0;seek.max=String(duration||1);seek.value=String(video.currentTime);seek.setAttribute('aria-valuetext',`${clock(video.currentTime)} de ${clock(duration)}`);
    time.textContent=`${clock(video.currentTime)} / ${clock(duration)}`;
@@ -56,7 +58,7 @@ initMediaUI();
 
 export function videoPlayerMarkup(url:string):string{
  const safeUrl=String(url).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c));
- return `<div class="video-player"><video src="${safeUrl}" playsinline preload="metadata" aria-label="Vídeo adjunto"></video><div class="video-controls"><input data-video-seek type="range" min="0" max="1" step="0.1" value="0" aria-label="Posición del vídeo"><div class="video-buttons"><button type="button" data-video-play aria-label="Reproducir vídeo">▶</button><span data-video-time>0:00 / 0:00</span><button type="button" data-video-mute aria-label="Silenciar">🔊</button><input data-video-volume type="range" min="0" max="1" step="0.05" value="0.8" aria-label="Volumen"><select data-video-speed aria-label="Velocidad de reproducción"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select><button type="button" data-video-pip aria-label="Ventana flotante">▣</button><button type="button" data-video-fullscreen aria-label="Pantalla completa">⛶</button></div><p data-video-status role="status"></p></div></div>`;
+ return `<div class="video-player"><video src="${safeUrl}" playsinline preload="metadata" aria-label="Vídeo adjunto"></video><div class="video-controls"><input data-video-seek type="range" min="0" max="1" step="0.1" value="0" aria-label="Posición del vídeo"><div class="video-buttons"><button type="button" data-video-play aria-label="Reproducir vídeo">${videoIcons.play}</button><span data-video-time>0:00 / 0:00</span><button type="button" data-video-mute aria-label="Silenciar">${videoIcons.volume}</button><input data-video-volume type="range" min="0" max="1" step="0.05" value="0.8" aria-label="Volumen"><select data-video-speed aria-label="Velocidad de reproducción"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select><button type="button" data-video-pip aria-label="Ventana flotante">${videoIcons.pip}</button><button type="button" data-video-fullscreen aria-label="Pantalla completa">${videoIcons.fullscreen}</button></div><p data-video-status role="status"></p></div></div>`;
 }
 
 /** Conserva los bytes originales, con una extensión de descarga acorde al formato permitido. */

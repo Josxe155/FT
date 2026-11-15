@@ -29,6 +29,10 @@ with sync_playwright() as p:
   page.keyboard.press('ArrowLeft');expect(page.locator('.viewer-header>span')).to_have_text('2 / 3')
   page.locator('[data-action="viewer-prev"]').click();expect(page.locator('.video-player')).to_be_visible()
   page.wait_for_function('document.querySelector(".video-player video").duration>0')
+  for selector in ['[data-video-play]','[data-video-mute]','[data-video-fullscreen]']:
+   centered=page.locator(selector).evaluate('(button)=>{const b=button.getBoundingClientRect(),s=button.querySelector("svg").getBoundingClientRect();return Math.abs(b.x+b.width/2-s.x-s.width/2)<1 && Math.abs(b.y+b.height/2-s.y-s.height/2)<1}')
+   assert centered,selector
+
   assert page.locator('.viewer-footer a[download]').get_attribute('download')=='video.webm'
   page.locator('[data-video-play]').click();page.wait_for_function('!document.querySelector(".video-player video").paused')
   page.locator('[data-video-play]').click();page.wait_for_function('document.querySelector(".video-player video").paused')

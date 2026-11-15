@@ -462,11 +462,17 @@ export async function deleteOwnReply(reportId, replyId) {
     const f = modules.firestore;
     await f.deleteDoc(f.doc(db, 'reports', reportId, 'replies', replyId));
 }
-export function listenFunaUpdates(reportId, onData) {
+export async function countFunaUpdates(reportId) {
+    if (!modules)
+        return 0;
+    const f = modules.firestore, snapshot = await f.getCountFromServer(f.query(f.collection(db, 'reports', reportId, 'updates')));
+    return snapshot.data().count;
+}
+export function listenFunaUpdates(reportId, onData, onError = () => { }) {
     if (!modules)
         return () => { };
     const f = modules.firestore;
-    return f.onSnapshot(f.query(f.collection(db, 'reports', reportId, 'updates'), f.orderBy('createdAt', 'asc'), f.limit(100)), (snap) => onData(snap.docs.map((d) => ({ id: d.id, reportId, ...d.data(), createdAt: d.data().createdAt?.toMillis?.() || Date.now() }))), (err) => console.warn('No se pudieron obtener las actualizaciones:', err));
+    return f.onSnapshot(f.query(f.collection(db, 'reports', reportId, 'updates'), f.orderBy('createdAt', 'desc'), f.limit(100)), (snap) => onData(snap.docs.filter((d) => !d.metadata?.hasPendingWrites || d.data().createdAt != null).map((d) => ({ id: d.id, reportId, ...d.data(), createdAt: d.data().createdAt?.toMillis?.() || Date.now() })).sort((a, b) => a.createdAt - b.createdAt)), onError);
 }
 export async function addFunaUpdate(reportId, text, files = []) {
     if (!modules || !auth?.currentUser)
