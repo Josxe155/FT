@@ -614,7 +614,10 @@ finally {
     state.busy = false;
     render();
 } }
-function close() { stopUpdates(); state.dialogue = null; state.updatesPost = null; state.flagId = null; state.flagReplyId = null; state.imageFiles = []; renderModal(); }
+function close() { if (modal.querySelector('form[data-sending="1"]')) {
+    toast('Espera a que termine la publicación.');
+    return;
+} stopUpdates(); state.dialogue = null; state.updatesPost = null; state.flagId = null; state.flagReplyId = null; state.imageFiles = []; renderModal(); }
 function checkImages(files) {
     if (files.length > 10)
         return 'Puedes adjuntar hasta 10 evidencias en total.';
@@ -635,8 +638,12 @@ function unsupportedContent(text) {
     return /\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b/i.test(text) || /(?:\+?593|0)[\s.-]?(?:\d[\s.-]?){9,10}/.test(text);
 }
 async function createFuna(form) {
-    if (!state.user)
+    if (!state.user || form.dataset.sending === '1')
         return;
+    if (firebaseEnabled && !navigator.onLine) {
+        toast('Sin conexión. Reconéctate antes de publicar; tu texto sigue aquí.', 'bad');
+        return;
+    }
     const d = new FormData(form);
     const canton = state.canton;
     const title = String(d.get('title') || '').trim();
@@ -657,13 +664,16 @@ async function createFuna(form) {
     const sensitiveContent = d.get('sensitiveContent') === 'true';
     const entry = { sensitiveContent, id: crypto.randomUUID(), canton, title, description, category: 'Funa', status: 'approved', authorUid: state.user.uid, authorAlias: 'Anónimo', createdAt: Date.now(), images: [] };
     const btn = form.querySelector('button[type=submit]');
+    form.dataset.sending = '1';
     btn.disabled = true;
     btn.textContent = 'Publicando...';
+    let publishWarning = '';
     try {
         if (firebaseEnabled) {
             if (state.imageFiles.length && !realtimeMediaAvailable())
                 throw new Error('Configura databaseURL de Realtime Database antes de publicar archivos.');
-            await addReport(entry, state.imageFiles);
+            const result = await addReport(entry, [...state.imageFiles]);
+            publishWarning = result.warning || '';
         }
         else {
             entry.media = [];
@@ -681,17 +691,22 @@ async function createFuna(form) {
                 toast('Espacio local insuficiente. Usa Firebase para guardar evidencias.', 'bad');
             }
         }
+        delete form.dataset.sending;
         close();
         navigate('canton/' + canton);
         if (firebaseEnabled)
             void getCantonTotals(cantons.map(c => c.slug)).then(t => { state.cantonTotals = t; if (!state.dialogue && !document.querySelector('form:focus-within'))
                 requestRouteRender(); });
-        toast('Funa publicada.');
+        toast(publishWarning || 'Funa publicada.', publishWarning ? 'bad' : 'ok');
     }
     catch (e) {
-        toast(e?.message || 'No se pudo publicar.', 'bad');
+        const message = e?.code === 'permission-denied' ? 'Firebase rechazó la publicación. Comprueba tu sesión y los permisos del proyecto.' : e?.message || 'No se pudo publicar. Tu texto se conserva para reintentar.';
+        toast(message, 'bad');
         btn.disabled = false;
         btn.textContent = 'Publicar';
+    }
+    finally {
+        delete form.dataset.sending;
     }
 }
 async function sendReply(form) {
@@ -960,6 +975,7 @@ document.addEventListener('click', async (e) => {
             toast('Abre primero un cantón para publicar.', 'bad');
             return;
         }
+        state.imageFiles = [];
         state.dialogue = 'compose';
         pushOverlayHistory();
         renderModal();

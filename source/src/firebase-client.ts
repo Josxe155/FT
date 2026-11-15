@@ -173,7 +173,7 @@ async function uploadEvidence(file:File,owner:string,reportId:string,slot:number
   if(tasks.length)await Promise.all(tasks);
   return media;
 }
-export async function addReport(data:Report,files:File[]):Promise<void>{
+export async function addReport(data:Report,files:File[]):Promise<{warning?:string}>{
   if(!modules||!auth?.currentUser)throw new Error('Inicia sesión para publicar.');
   if(files.length>10)throw new Error('Solo puedes subir diez evidencias.');
   if(files.length && !realtimeMediaAvailable())throw new Error('Activa Realtime Database y añade databaseURL para subir evidencias.');
@@ -191,9 +191,10 @@ export async function addReport(data:Report,files:File[]):Promise<void>{
     if(!published && files.length && realtimeMediaAvailable()){
       await modules.database.remove(modules.database.ref(rtdb,`evidence/${owner}/${data.id}`)).catch(()=>{});
     }
-    if(published)throw new Error('La funa se guardó. La visibilidad de sus archivos se habilita desde el servidor.');
+    if(published)return {warning:'La funa se publicó, pero sus evidencias no quedaron visibles. Contacta con moderación; no vuelvas a publicar.'};
     throw err;
   }
+  return {};
 }
 export function listenReplies(reportId:string, uid:string, onData:(reply:Reply[])=>void, onError:(error:any)=>void=()=>{}) {
   if (!modules) return ()=>{};

@@ -27,3 +27,19 @@ PENDIENTE DE AUTORIZACIÓN FIREBASE
 - Las pruebas de navegador usan el adaptador local y, para el reintento,
   un fallo remoto simulado. No verifican permisos ni servicios Firebase reales.
 - No se modificaron ni se desplegaron reglas o índices de las bases de datos.
+
+REVISIÓN CON ACCESO REAL A FIREBASE
+- Inicio de sesión CLI autorizado y sitio de Hosting confirmado.
+- Entrada como invitado en el sitio real: correcta.
+- Publicación real de texto y publicación con PNG: correctas.
+- Ambos registros temporales y sus evidencias se eliminaron al terminar.
+- El fallo concreto informado por el usuario no se reprodujo con esos casos.
+- Corregido el falso fallo tras guardar la publicación si falla la visibilidad.
+- Bloqueo de envíos dobles y de cierre del diálogo durante la subida.
+- Aviso sin conexión y mensaje específico para permisos rechazados.
+- appId sincronizado con el identificador real de Firebase Hosting.
+- Favicon SVG nuevo y versiones PNG de 192/512 píxeles.
+- Proveedores Google y anónimo habilitados: verificado en la configuración remota.
+- Archivos seleccionados reiniciados al abrir una nueva publicación.
+- Contenido sensible: cuatro resoluciones aprobadas, incluida publicación posterior sin archivos.
+- JavaScript con revalidación de caché y favicon con URL versionada.

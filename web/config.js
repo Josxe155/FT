@@ -6,6 +6,6 @@ window.FUNADOS_FIREBASE_CONFIG = {
   "authDomain": "funados-todos.firebaseapp.com",
   "projectId": "funados-todos",
   "messagingSenderId": "667015999103",
-  "appId": "1:667015999103:web:ddbee208d84153c827d94",
+  "appId": "1:667015999103:web:ddbee208d84153c827d94a",
   "databaseURL": "https://funados-todos-default-rtdb.firebaseio.com"
 };

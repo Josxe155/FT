@@ -237,9 +237,10 @@ export async function addReport(data, files) {
             await modules.database.remove(modules.database.ref(rtdb, `evidence/${owner}/${data.id}`)).catch(() => { });
         }
         if (published)
-            throw new Error('La funa se guardó. La visibilidad de sus archivos se habilita desde el servidor.');
+            return { warning: 'La funa se publicó, pero sus evidencias no quedaron visibles. Contacta con moderación; no vuelvas a publicar.' };
         throw err;
     }
+    return {};
 }
 export function listenReplies(reportId, uid, onData, onError = () => { }) {
     if (!modules)
