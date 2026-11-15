@@ -190,7 +190,23 @@ export function listenReports(onData, uid, onError = () => { }) {
 // Firestore almacena EXCLUSIVAMENTE referencias y metadatos, nunca bytes de vídeo o imagen.
 const CHUNK_BYTES = 48 * 1024;
 const mediaCache = new Map();
-const mediaRoot = (owner, post, file) => `evidence/${owner}/${post}/files/${file}`;
+const mediaSizes = new Map(), mediaLoads = new Map();
+let cachedMediaBytes = 0, mediaEpoch = 0;
+function cacheMedia(path, url, size) {
+    mediaCache.set(path, url);
+    mediaSizes.set(path, size);
+    cachedMediaBytes += size;
+    while (mediaCache.size > 24 || cachedMediaBytes > 48 * 1024 * 1024) {
+        const oldest = mediaCache.keys().next().value;
+        if (!oldest || oldest === path)
+            break;
+        URL.revokeObjectURL(mediaCache.get(oldest));
+        cachedMediaBytes -= mediaSizes.get(oldest) || 0;
+        mediaCache.delete(oldest);
+        mediaSizes.delete(oldest);
+    }
+}
+const mediaRoot = (owner, post, file, updateId) => updateId ? `evidenceUpdates/${owner}/${post}/${updateId}/files/${file}` : `evidence/${owner}/${post}/files/${file}`;
 function encodeBlock(buf) {
     let binary = '';
     for (let start = 0; start < buf.length; start += 8192)
@@ -204,45 +220,65 @@ function decodeBlock(value) {
     return bytes;
 }
 export function realtimeMediaAvailable() { return Boolean(modules?.database && rtdb); }
-export function clearEvidenceCache() { mediaCache.forEach(v => URL.revokeObjectURL(v)); mediaCache.clear(); }
-export async function loadEvidenceURL(reportId, item) {
-    if (item.localUrl)
+export function clearEvidenceCache() { mediaCache.forEach(v => URL.revokeObjectURL(v)); mediaCache.clear(); mediaSizes.clear(); cachedMediaBytes = 0; mediaEpoch++; mediaLoads.clear(); }
+export async function loadEvidenceURL(reportId, item, updateId) {
+    if (item.localUrl && !firebaseEnabled && /^(blob:|data:(image\/(png|jpeg|webp)|video\/(mp4|webm|quicktime));base64,)/.test(item.localUrl))
         return item.localUrl;
-    const path = mediaRoot(item.ownerUid, reportId, item.id);
-    if (mediaCache.has(path))
-        return mediaCache.get(path);
-    if (!realtimeMediaAvailable())
-        throw new Error('Falta configurar Realtime Database.');
-    const d = modules.database;
-    const snap = await d.get(d.ref(rtdb, `${path}/chunks`));
-    const blocks = snap.val();
-    if (!blocks)
-        throw new Error('La evidencia no está disponible.');
-    if (!Number.isInteger(item.chunks) || !Number.isInteger(item.size) || item.size < 1 || item.size > 10 * 1024 * 1024 || item.chunks < 1 || item.chunks > 214)
-        throw new Error('Evidencia inválida.');
-    const bytes = [];
-    let total = 0;
-    for (let i = 0; i < item.chunks; i++) {
-        const raw = blocks[String(i)];
-        if (typeof raw !== 'string')
-            throw new Error('Archivo incompleto.');
-        const block = decodeBlock(raw);
-        total += block.byteLength;
-        bytes.push(block);
+    const path = mediaRoot(item.ownerUid, reportId, item.id, updateId);
+    if (mediaCache.has(path)) {
+        const url = mediaCache.get(path);
+        mediaCache.delete(path);
+        mediaCache.set(path, url);
+        return url;
     }
-    if (total !== item.size)
-        throw new Error('La evidencia está incompleta.');
-    const blob = new Blob(bytes, { type: item.type });
-    const url = URL.createObjectURL(blob);
-    mediaCache.set(path, url);
-    return url;
+    const running = mediaLoads.get(path);
+    if (running)
+        return running;
+    const epoch = mediaEpoch;
+    const pending = (async () => {
+        if (!realtimeMediaAvailable())
+            throw new Error('Falta configurar Realtime Database.');
+        const d = modules.database;
+        const snap = await d.get(d.ref(rtdb, `${path}/chunks`));
+        const blocks = snap.val();
+        if (!blocks)
+            throw new Error('La evidencia no está disponible.');
+        if (!Number.isInteger(item.chunks) || !Number.isInteger(item.size) || item.size < 1 || item.size > 10 * 1024 * 1024 || item.chunks < 1 || item.chunks > 214)
+            throw new Error('Evidencia inválida.');
+        const bytes = [];
+        let total = 0;
+        for (let i = 0; i < item.chunks; i++) {
+            const raw = blocks[String(i)];
+            if (typeof raw !== 'string')
+                throw new Error('Archivo incompleto.');
+            const block = decodeBlock(raw);
+            total += block.byteLength;
+            bytes.push(block);
+        }
+        if (total !== item.size)
+            throw new Error('La evidencia está incompleta.');
+        const blob = new Blob(bytes, { type: item.type });
+        if (epoch !== mediaEpoch)
+            throw new Error('La sesión de archivos ha cambiado.');
+        const url = URL.createObjectURL(blob);
+        cacheMedia(path, url, item.size);
+        return url;
+    })();
+    mediaLoads.set(path, pending);
+    try {
+        return await pending;
+    }
+    finally {
+        if (mediaLoads.get(path) === pending)
+            mediaLoads.delete(path);
+    }
 }
-async function uploadEvidence(file, owner, reportId, slot) {
+async function uploadEvidence(file, owner, reportId, slot, updateId) {
     const d = modules.database;
     const id = String(slot); // RTDB permite únicamente posiciones 0–9 para imponer diez evidencias.
     const chunks = Math.ceil(file.size / CHUNK_BYTES);
     const media = { id, ownerUid: owner, name: file.name.slice(0, 90), type: file.type, size: file.size, chunks };
-    const path = mediaRoot(owner, reportId, id);
+    const path = mediaRoot(owner, reportId, id, updateId);
     await d.set(d.ref(rtdb, `${path}/meta`), { ...media, createdAt: d.serverTimestamp() });
     // Agrupa los fragmentos en lotes de 12: evita cientos de viajes de red por vídeo.
     const tasks = [];
@@ -430,11 +466,34 @@ export function listenFunaUpdates(reportId, onData) {
     const f = modules.firestore;
     return f.onSnapshot(f.query(f.collection(db, 'reports', reportId, 'updates'), f.orderBy('createdAt', 'asc'), f.limit(100)), (snap) => onData(snap.docs.map((d) => ({ id: d.id, reportId, ...d.data(), createdAt: d.data().createdAt?.toMillis?.() || Date.now() }))), (err) => console.warn('No se pudieron obtener las actualizaciones:', err));
 }
-export async function addFunaUpdate(reportId, text) {
+export async function addFunaUpdate(reportId, text, files = []) {
     if (!modules || !auth?.currentUser)
         throw new Error('Inicia sesión para publicar.');
-    const f = modules.firestore;
-    await f.addDoc(f.collection(db, 'reports', reportId, 'updates'), { reportId, text, authorUid: auth.currentUser.uid, createdAt: f.serverTimestamp() });
+    const owner = auth.currentUser.uid;
+    await requireCurrentSession(owner);
+    if (files.length > 4 || files.some(f => !['image/png', 'image/jpeg', 'image/webp'].includes(f.type) || f.size <= 0 || f.size > 5 * 1024 * 1024))
+        throw new Error('Adjunta hasta cuatro fotos JPG, PNG o WebP de 5 MB como máximo.');
+    if (files.length && !realtimeMediaAvailable())
+        throw new Error('Las evidencias no están disponibles ahora.');
+    const f = modules.firestore, ref = f.doc(f.collection(db, 'reports', reportId, 'updates'));
+    const media = [];
+    let saved = false;
+    try {
+        for (const [slot, file] of files.entries())
+            media.push(await uploadEvidence(file, owner, reportId, slot, ref.id));
+        await f.setDoc(ref, { reportId, text, authorUid: owner, media, createdAt: f.serverTimestamp() });
+        saved = true;
+        if (files.length)
+            await modules.database.set(modules.database.ref(rtdb, `evidenceVisibility/${owner}/${reportId}`), { ownerUid: owner, visible: true });
+        return {};
+    }
+    catch (error) {
+        if (saved)
+            return { warning: 'La actualización se guardó, pero sus fotos no quedaron visibles. Contacta con moderación; no la publiques otra vez.' };
+        if (files.length)
+            await modules.database.remove(modules.database.ref(rtdb, `evidenceUpdates/${owner}/${reportId}/${ref.id}`)).catch(() => { });
+        throw error;
+    }
 }
 /** Votos privados y totales públicos de cada comentario, en una transacción. */
 export function listenCommentReactionSummary(reportId, commentId, uid, onChange) {

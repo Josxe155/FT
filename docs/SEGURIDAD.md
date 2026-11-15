@@ -59,3 +59,7 @@ Tras cada cambio de reglas: ejecutar emuladores, comprobar invitado y Google, pu
 ## Retención implementada
 
 Ver [RETENCION.md](RETENCION.md): registro de actividad protegido, política de cero Me gusta tras 30 días y limpieza de cuentas. La programación queda desactivada hasta aprobar su identidad y los permisos de borrado. No hay un nuevo backend Cloud Functions ni cambio de plan.
+
+## Multimedia y mantenimiento manual
+
+La revisión vigente amplía las reglas a `evidenceUpdates`, con acceso por propietario, hasta cuatro fotos y el mismo bloqueo de moderación de la publicación. La lectura conjunta de actividad y evidencias se concede solo a la administración verificada. El panel manual requiere además OAuth y permisos reales de la cuenta propietaria; no lleva secretos de servidor al navegador. Ver [RETENCION.md](RETENCION.md) y [MULTIMEDIA.md](MULTIMEDIA.md). La alternativa automática anterior permanece desactivada.

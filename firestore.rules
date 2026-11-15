@@ -179,11 +179,16 @@ service cloud.firestore {
         allow get, list: if readablePost(reportId);
         allow create: if signed() && approvedPost(reportId)
           && get(/databases/$(database)/documents/reports/$(reportId)).data.authorUid == request.auth.uid
-          && request.resource.data.keys().hasOnly(['reportId','text','authorUid','createdAt'])
+          && request.resource.data.keys().hasOnly(['reportId','text','authorUid','createdAt','media'])
           && request.resource.data.keys().hasAll(['reportId','text','authorUid','createdAt'])
           && request.resource.data.reportId == reportId && request.resource.data.authorUid == request.auth.uid
           && request.resource.data.text is string && request.resource.data.text.size() >= 10
-          && request.resource.data.text.size() <= 1000 && request.resource.data.createdAt == request.time;
+          && request.resource.data.text.size() <= 1000 && request.resource.data.createdAt == request.time
+          && (!('media' in request.resource.data) || (validMedia(request.resource.data.media,request.auth.uid) && request.resource.data.media.size() <= 4
+            && (request.resource.data.media.size() < 1 || (request.resource.data.media[0].type.matches('^image/.*') && request.resource.data.media[0].size <= 5242880))
+            && (request.resource.data.media.size() < 2 || (request.resource.data.media[1].type.matches('^image/.*') && request.resource.data.media[1].size <= 5242880))
+            && (request.resource.data.media.size() < 3 || (request.resource.data.media[2].type.matches('^image/.*') && request.resource.data.media[2].size <= 5242880))
+            && (request.resource.data.media.size() < 4 || (request.resource.data.media[3].type.matches('^image/.*') && request.resource.data.media[3].size <= 5242880))));
         allow update, delete: if false;
       }
     }

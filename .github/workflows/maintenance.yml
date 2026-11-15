@@ -19,8 +19,8 @@ concurrency:
   cancel-in-progress: false
 jobs:
   retention:
-    # Pendiente de autorización explícita para crear la identidad y su vínculo IAM.
-    # Tras configurar y verificar WIF, cambiar false por true mediante un commit revisado.
+    # El mantenimiento vigente se ejecuta manualmente desde el dashboard.
+    # Este ejemplo automático sigue desactivado; el panel no necesita esta identidad IAM.
     if: ${{ false }}
     runs-on: ubuntu-latest
     timeout-minutes: 20

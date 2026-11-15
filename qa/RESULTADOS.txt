@@ -76,3 +76,27 @@ RETENCIÓN DE 30 DÍAS — IMPLEMENTADA, PROGRAMACIÓN PENDIENTE
 - No se cambió el plan ni se habilitó facturación.
 - PASS CLI: rechaza producción sin activación, destinos mixtos y proyectos demo
   sin los tres emuladores, antes de conectarse a los servicios.
+
+MULTIMEDIA Y DASHBOARD MANUAL — 15 NOV 2026
+- Reproductor propio y carrusel; actualizaciones con hasta cuatro fotos.
+- PASS multimedia 320/390/1440: reproducción WebM, pausa, avance, volumen,
+  silencio, velocidad, pantalla completa, cierre, teclado y borrador con visor.
+- PASS dashboard 390/1440: paginación, búsqueda sin perder foco, revisión,
+  selección, cancelar, conservar reacciones/actividad nuevas y reanudar fallos.
+- PASS reglas y emuladores: cuatro fotos, autoría, bloqueo de moderación,
+  rechazo de cinco fotos, vídeo en actualización y rutas no autorizadas.
+- PASS APIs de Firebase reales con una publicación privada ficticia de QA:
+  consulta de cuentas, transacción, bloqueo y borrado de documento,
+  subcolecciones, reportes y evidencias. Cero cuentas reales borradas.
+- Criterio vigente: 30 días, ninguna reacción de ningún tipo y ningún comentario.
+- Modo manual con OAuth de la cuenta propietaria; no se crearon identidades IAM
+  ni se activó el workflow automático anterior ni la facturación.
+- El consentimiento interactivo de Google requiere al administrador en el panel;
+  la prueba API utilizó una credencial de propietario ya autorizada.
+- PASS adicional: previsualización privada de evidencias, cuentas sin permiso
+  bloqueadas y cuentas en margen inicial visibles pero no seleccionables.
+- Caché: hasta 24 archivos/48 MiB, descarga concurrente compartida y limpieza
+  al salir; URLs locales antiguas no se usan en producción.
+- PASS descargas: un vídeo con nombre de documento antiguo «video.exe» se
+  descarga como WebM; los bytes se conservan y no se ofrece descarga directa
+  de URLs HTTPS antiguas de terceros.

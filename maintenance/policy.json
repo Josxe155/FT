@@ -2,10 +2,12 @@
   "projectId": "funados-todos",
   "databaseURL": "https://funados-todos-default-rtdb.firebaseio.com",
   "reportRetentionDays": 30,
-  "maxLikesToDelete": 0,
   "accountInactivityDays": 30,
-  "protectedEmails": ["alexander155alvarado@gmail.com"],
+  "protectedEmails": [
+    "alexander155alvarado@gmail.com"
+  ],
   "maxReportsPerRun": 100,
   "maxUsersPerRun": 100,
-  "maxAuthPagesPerRun": 5
+  "maxAuthPagesPerRun": 5,
+  "supportPolicy": "no-reactions-and-no-comments"
 }

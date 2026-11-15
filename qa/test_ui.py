@@ -3,7 +3,8 @@ from playwright.sync_api import sync_playwright
 import sys
 root=Path(__file__).resolve().parents[1]
 assets=root/'assets'
-scripts=(assets/'cantons.js').read_text().replace('export const','const')+'\n'+(assets/'firebase-client.js').read_text().replace('export const','const').replace('export async function','async function').replace('export function','function')+'\n'+'\n'.join((assets/'main.js').read_text().splitlines()[2:])
+scripts=(assets/'cantons.js').read_text().replace('export const','const')+'\n'+(assets/'firebase-client.js').read_text().replace('export const','const').replace('export async function','async function').replace('export function','function')+'\n'+'\n'.join([line for line in (assets/'main.js').read_text().splitlines() if not line.startswith('import ')])
+scripts=(assets/'media-ui.js').read_text().replace('export function','function')+'\n'+scripts
 with sync_playwright() as p:
  b=p.chromium.launch(headless=True,executable_path='/usr/bin/chromium',args=['--no-sandbox'])
  for width in [int(sys.argv[1])] if len(sys.argv)>1 else [390]:

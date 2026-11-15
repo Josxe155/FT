@@ -1,3 +1,4 @@
+import { videoPlayerMarkup, safeMediaFilename } from './media-ui.js';
 import { cantons, cantonMap } from './cantons.js';
 import { firebaseEnabled, initFirebase, loginGoogle, loginGuest, logoutFirebase, saveAlias, listenReports, loadMoreReports, hasMoreReports, getCantonTotals, listenReplies, addReport, realtimeMediaAvailable, loadEvidenceURL, clearEvidenceCache, flagReport, saveTikTok, deleteTikTok, listenTikTok, trackVisit, trackActivity, listenReactionSummary, setReaction, addNestedReply, editReplyText, deleteOwnReply, listenFunaUpdates, addFunaUpdate, listenCommentReactionSummary, setCommentReaction, fetchReportById, countMyReports } from './firebase-client.js';
 const app = document.getElementById('app');
@@ -9,6 +10,9 @@ const zeroCounts = () => ({ like: 0, wow: 0, concern: 0 });
 const state = {
     cantonTotals: {}, previewMediaType: 'image/jpeg', commentReactions: {}, myCommentReactions: {}, updatesPost: null, currentUpdates: [], replyTarget: null, editReplyId: null, reactions: {}, myReactions: {}, user: null, busy: false, menu: false, dialogue: null, canton: 'machala', thread: null, flagId: null, flagReplyId: null, imageFiles: [], reports: read(KEY.reports, []), replies: read(KEY.replies, []), remoteReports: [], remoteReplies: [], profiles: [], profileName: read(KEY.tiktok, ''), search: '', online: null, sort: 'recientes', prefs: read(KEY.prefs, { animations: true, compact: false }), previewImage: ''
 };
+let previewItems = [], previewIndex = 0, previewLoad = 0, previewLoading = false;
+let updateFiles = [], updateDraftText = '';
+let viewerReturnUpdates = false;
 let stopReports = () => { }, stopReplies = () => { }, stopTikTok = () => { }, stopPresence = () => { }, stopActivity = () => { }, stopUpdates = () => { };
 // La decisión de ver una funa sensible dura solo hasta salir de la sesión.
 const revealedSensitivePosts = new Set();
@@ -291,11 +295,12 @@ function tiktokAuthor(r) {
     return `<a class="report-author tiktok-author" href="${esc(url)}" target="_blank" rel="noopener noreferrer" title="Perfil de TikTok declarado por el autor"><span class="mini-avatar"><img src="${esc(img)}" alt="" loading="lazy" onerror="this.style.display='none'"></span>@${esc(username)} ${icons.out}</a>`;
 }
 let evidenceObserver = null;
-function mediaById(postId, id) {
+function mediaById(postId, id, updateId) {
     const post = allReports().find(x => x.id === postId);
     if (!post)
         return null;
-    return (Array.isArray(post.media) ? post.media : []).find(x => x && x.id === id && x.ownerUid === post.authorUid && typeof x.type === 'string') || null;
+    const source = updateId ? allUpdatesFor(postId).find(u => u.id === updateId)?.media : post.media;
+    return (Array.isArray(source) ? source : []).find(x => x && x.id === id && x.ownerUid === post.authorUid && typeof x.type === 'string') || null;
 }
 function hydrateEvidence() {
     evidenceObserver?.disconnect();
@@ -305,11 +310,11 @@ function hydrateEvidence() {
         if (el.dataset.loaded)
             return;
         el.dataset.loaded = '1';
-        const post = el.dataset.report || '', item = mediaById(post, el.dataset.file || '');
+        const post = el.dataset.report || '', item = mediaById(post, el.dataset.file || '', el.dataset.update);
         if (!item)
             return;
         try {
-            el.src = await loadEvidenceURL(post, item);
+            el.src = await loadEvidenceURL(post, item, el.dataset.update);
         }
         catch {
             el.alt = 'Imagen no disponible';
@@ -329,16 +334,47 @@ function hydrateEvidence() {
         nodes.forEach(el => evidenceObserver.observe(el));
     }
 }
-function evidenceMarkup(r) {
-    const items = (Array.isArray(r.media) ? r.media : []).filter(m => m && typeof m.id === 'string' && /^(?:[0-9]|[A-Za-z0-9_-]{8,80})$/.test(m.id) && m.ownerUid === r.authorUid && typeof m.type === 'string' && /^(image\/(jpeg|png|webp)|video\/(mp4|webm|quicktime))$/.test(m.type));
-    const fresh = items.map(m => {
-        const movie = m.type.startsWith('video/');
-        const thumb = movie ? `<span class="evidence-video-icon">▶</span><small>Vídeo</small>` : `<img data-evidence-preview data-report="${esc(r.id)}" data-file="${esc(m.id)}" alt="Evidencia adjunta" loading="lazy">`;
-        return `<button class="image-open evidence-open" type="button" data-action="open-evidence" data-post="${esc(r.id)}" data-file="${esc(m.id)}" aria-label="Abrir evidencia ${esc(m.name)}">${thumb}</button>`;
-    });
-    const old = (Array.isArray(r.images) ? r.images : []).filter(u => typeof u === 'string' && /^(https:\/\/|data:image\/(png|jpeg|webp);base64,)/i.test(u)).slice(0, 5).map(u => `<button class="image-open" data-action="image" data-image="${esc(u)}" aria-label="Ampliar imagen"><img src="${esc(u)}" loading="lazy" alt="Imagen adjunta a la funa"></button>`);
-    const combined = [...fresh, ...old];
-    return combined.length ? `<div class="report-images ${combined.length === 1 ? 'single' : ''}">${combined.join('')}</div>` : '';
+function galleryItems(r, updateId) {
+    const source = updateId ? allUpdatesFor(r.id).find(u => u.id === updateId)?.media : r.media;
+    const media = (Array.isArray(source) ? source : []).filter(m => m && typeof m.id === 'string' && /^(?:[0-9]|[A-Za-z0-9_-]{8,80})$/.test(m.id) && m.ownerUid === r.authorUid && typeof m.type === 'string' && /^(image\/(jpeg|png|webp)|video\/(mp4|webm|quicktime))$/.test(m.type));
+    const items = media.map(m => ({ media: m, type: m.type, name: String(m.name || 'Evidencia'), reportId: r.id, updateId }));
+    if (!updateId)
+        for (const url of (Array.isArray(r.images) ? r.images : []).filter(u => typeof u === 'string' && /^(https:\/\/|data:image\/(png|jpeg|webp);base64,)/i.test(u)).slice(0, 10))
+            items.push({ url, type: 'image/jpeg', name: 'Imagen adjunta', reportId: r.id });
+    return items;
+}
+function evidenceMarkup(r, updateId) {
+    const items = galleryItems(r, updateId);
+    if (!items.length)
+        return '';
+    const key = updateId ? r.id + '-' + updateId : r.id;
+    return `<div class="report-images media-carousel ${items.length === 1 ? 'single' : ''}" data-carousel="${esc(key)}" role="region" aria-label="Evidencias adjuntas" tabindex="0"><div class="carousel-track">${items.map((item, i) => `<button class="image-open evidence-open carousel-slide" type="button" data-action="gallery-open" data-post="${esc(r.id)}" data-update="${esc(updateId || '')}" data-index="${i}" aria-label="Abrir evidencia ${i + 1}: ${esc(item.name)}">${item.type.startsWith('video/') ? '<span class="evidence-video-icon">▶</span><small>Reproducir vídeo</small>' : item.media ? `<img data-evidence-preview data-report="${esc(r.id)}" data-file="${esc(item.media.id)}" ${updateId ? `data-update="${esc(updateId)}"` : ''} alt="${esc(item.name)}" loading="lazy">` : `<img src="${esc(item.url)}" alt="Imagen adjunta" loading="lazy">`}</button>`).join('')}</div>${items.length > 1 ? `<div class="carousel-tools"><button type="button" data-carousel-dir="-1" aria-label="Evidencia anterior">‹</button><span data-carousel-count>1 / ${items.length}</span><button type="button" data-carousel-dir="1" aria-label="Evidencia siguiente">›</button></div><div class="carousel-dots">${items.map((_, i) => `<button type="button" data-carousel-index="${i}" aria-label="Ir a evidencia ${i + 1}" aria-current="${i === 0}"></button>`).join('')}</div>` : ''}</div>`;
+}
+async function previewAt(index) {
+    if (index < 0 || index >= previewItems.length)
+        return;
+    previewIndex = index;
+    const item = previewItems[index], request = ++previewLoad;
+    state.dialogue = 'image';
+    previewLoading = true;
+    state.previewImage = '';
+    state.previewMediaType = item.type;
+    renderModal();
+    try {
+        const url = item.media ? await loadEvidenceURL(item.reportId, item.media, item.updateId) : item.url;
+        if (request !== previewLoad || state.dialogue !== 'image')
+            return;
+        state.previewImage = url;
+        previewLoading = false;
+        renderModal();
+    }
+    catch (error) {
+        if (request === previewLoad) {
+            previewLoading = false;
+            close();
+            toast(error?.message || 'No se pudo abrir la evidencia.', 'bad');
+        }
+    }
 }
 function pushOverlayHistory() { if (!history.state?.funadosOverlay)
     history.pushState({ funadosOverlay: true }, '', location.href); }
@@ -476,18 +512,31 @@ function updatesDialog() {
     if (!r)
         return '';
     const mine = state.user?.uid === r.authorUid, items = allUpdatesFor(r.id);
-    return `<div class="modal-overlay" data-action="close-overlay"><section class="modal-panel thread-panel" role="dialog" aria-modal="true" aria-label="Actualizaciones de la funa"><div class="modal-header"><h2>Actualizaciones</h2><button class="icon-control" type="button" aria-label="Cerrar" data-action="close">${icons.close}</button></div><div class="thread-content"><h3>${esc(r.title)}</h3><p>${esc(r.description)}</p><div class="thread-divider"></div><div class="update-timeline">${items.length ? items.map(u => `<article class="update-item"><time>${formatDateTime(u.createdAt)}</time><p>${esc(u.text)}</p></article>`).join('') : '<p class="no-replies">Todavía no hay actualizaciones.</p>'}</div></div>${mine ? `<form id="update-form" class="reply-form"><label for="update-text">Añadir actualización de la funa</label><textarea id="update-text" name="update" rows="4" minlength="10" maxlength="1000" required placeholder="Escribe nueva información sobre esta funa..."></textarea><button class="button-primary" type="submit">Publicar actualización ${icons.arrow}</button></form>` : ''}</section></div>`;
+    return `<div class="modal-overlay" data-action="close-overlay"><section class="modal-panel thread-panel updates-panel" role="dialog" aria-modal="true" aria-label="Actualizaciones de la funa"><div class="modal-header"><div><span class="updates-kicker">SEGUIMIENTO</span><h2>Actualizaciones</h2></div><button class="icon-control" type="button" aria-label="Cerrar" data-action="close">${icons.close}</button></div><div class="update-context"><strong>${esc(r.title)}</strong><p>Nueva información del autor, sin perder el contexto de la publicación.</p></div><div class="thread-content update-timeline">${items.length ? items.map(u => `<article class="update-item update-message"><span class="update-avatar">${icons.user}</span><div class="update-message-body"><div class="update-message-heading"><strong>Autor anónimo</strong><span class="update-badge">AUTOR</span><time>${formatDateTime(u.createdAt)}</time></div><p>${esc(u.text)}</p>${evidenceMarkup(r, u.id)}</div></article>`).join('') : '<p class="no-replies">Todavía no hay actualizaciones. Las novedades aparecerán aquí.</p>'}</div>${mine ? `<form id="update-form" class="reply-form update-composer"><label for="update-text">Añadir actualización</label><textarea id="update-text" name="update" rows="3" minlength="10" maxlength="1000" required placeholder="Comparte nueva información…"></textarea><div class="update-composer-bottom"><label class="update-attach" for="update-images">${icons.image} Adjuntar fotos<input id="update-images" type="file" accept="image/png,image/jpeg,image/webp" multiple class="visually-hidden"></label><small>Hasta 4 fotos · 5 MB cada una</small><button class="button-primary" type="submit">Publicar actualización ${icons.arrow}</button></div><p id="selected-update-images" class="selected-images">${esc(updateFiles.map(f => f.name).join(' · '))}</p></form>` : ''}</section></div>`;
 }
 function composerDialog() { return `<div class="modal-overlay" data-action="close-overlay"><section class="modal-panel" role="dialog" aria-modal="true" aria-label="Añadir una funa"><div class="modal-header"><h2>Añadir funa</h2><button class="icon-control" type="button" aria-label="Cerrar" data-action="close">${icons.close}</button></div><form id="compose-form" class="form-stack"><div class="field"><label for="post-title">Título</label><input id="post-title" name="title" type="text" maxlength="110" minlength="10" placeholder="Título de la funa" autocomplete="off" required></div><div class="field"><label for="post-description">Descripción</label><textarea id="post-description" name="description" rows="5" minlength="25" maxlength="1800" placeholder="Escribe la descripción de la funa..." required></textarea></div><div class="field"><label for="post-images">Evidencias <span class="muted">(opcional, hasta 10 imágenes o vídeos)</span></label><label class="upload-area" for="post-images">${icons.image}<span>Seleccionar evidencias</span><small>JPG, PNG, WebP, MP4, WebM o MOV · vídeos hasta 10 MB · imágenes hasta 5 MB</small></label><input class="visually-hidden" id="post-images" name="images" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" multiple><div id="selected-images" class="selected-images"></div></div><label class="sensitive-compose" for="post-sensitive"><span class="sensitive-compose-icon">${icons.eyeOff}</span><span class="sensitive-compose-copy"><strong>Contenido sensible</strong><small>Ocultar título, descripción y evidencias hasta pulsar «Ver contenido». Opcional y desactivado por defecto.</small></span><input type="checkbox" name="sensitiveContent" id="post-sensitive" value="true"><span class="sensitive-compose-switch" aria-hidden="true"></span></label><button class="button-primary fullwidth" type="submit">Publicar</button></form></section></div>`; }
 function guestDialog() { return `<div class="modal-overlay" data-action="close-overlay"><section class="modal-panel compact" role="dialog" aria-modal="true" aria-label="Apodo de invitado"><div class="modal-header"><h2>Modo de invitado</h2><button type="button" class="icon-control" data-action="close" aria-label="Cerrar">${icons.close}</button></div><form id="guest-form" class="form-stack"><div class="field"><label for="guest-alias">Elige un apodo</label><input id="guest-alias" name="alias" minlength="2" maxlength="24" placeholder="Tu apodo" autocomplete="nickname" value="${esc(read(KEY.alias, ''))}" required></div><button type="submit" class="button-primary fullwidth">Continuar</button></form></section></div>`; }
-function imageDialog() { const movie = state.previewMediaType.startsWith('video/'); return `<div class="modal-overlay" data-action="close-overlay"><section class="photo-panel" role="dialog" aria-modal="true" aria-label="Evidencia ampliada"><button class="icon-control photo-close" data-action="close" aria-label="Cerrar">${icons.close}</button>${movie ? `<video src="${esc(state.previewImage)}" controls playsinline preload="metadata" style="max-width:95vw;max-height:84vh"></video>` : `<img src="${esc(state.previewImage)}" alt="Imagen ampliada de la publicación">`}</section></div>`; }
+function imageDialog() {
+    const movie = state.previewMediaType.startsWith('video/'), item = previewItems[previewIndex];
+    const body = previewLoading ? '<div class="viewer-loading" role="status">Cargando evidencia…</div>' : movie ? videoPlayerMarkup(state.previewImage) : `<img src="${esc(state.previewImage)}" alt="${esc(item?.name || 'Evidencia ampliada')}">`;
+    return `<div class="modal-overlay" data-action="close-overlay"><section class="photo-panel gallery-viewer" role="dialog" aria-modal="true" aria-label="Evidencia ampliada"><div class="viewer-header"><span>${previewItems.length ? `${previewIndex + 1} / ${previewItems.length}` : 'Evidencia'}</span><strong>${esc(item?.name || 'Archivo adjunto')}</strong><button class="icon-control" data-action="close" aria-label="Cerrar">${icons.close}</button></div>${body}<div class="viewer-footer">${previewItems.length > 1 ? `<button type="button" data-action="viewer-prev" ${previewIndex === 0 ? 'disabled' : ''} aria-label="Evidencia anterior">‹ Anterior</button><button type="button" data-action="viewer-next" ${previewIndex === previewItems.length - 1 ? 'disabled' : ''} aria-label="Evidencia siguiente">Siguiente ›</button>` : ''}${!previewLoading && /^(blob:|data:(image|video)\/)/.test(state.previewImage) ? `<a href="${esc(state.previewImage)}" download="${esc(safeMediaFilename(item?.name || 'evidencia', state.previewMediaType))}" target="_blank" rel="noopener noreferrer">Descargar original</a>` : ''}</div></section></div>`;
+}
 function tikTokDialog() { return `<div class="modal-overlay" data-action="close-overlay"><section class="modal-panel compact" role="dialog" aria-modal="true" aria-label="Añadir cuenta de TikTok"><div class="modal-header"><h2>Añadir TikTok</h2><button type="button" class="icon-control" data-action="close" aria-label="Cerrar">${icons.close}</button></div><form id="tiktok-form" class="form-stack"><div class="field"><label for="tt-username">Nombre de usuario</label><p class="identity-notice">Al vincular TikTok, tu @usuario aparecerá públicamente como autor de todas tus funas. Es un enlace declarado por ti; no es una verificación oficial.</p><div class="prefix-input"><span>@</span><input id="tt-username" name="username" placeholder="usuario" autocomplete="off" minlength="2" maxlength="24" required></div></div><button class="button-primary fullwidth" type="submit">Añadir cuenta ${icons.arrow}</button></form></section></div>`; }
 function flagDialog() { return `<div class="modal-overlay" data-action="close-overlay"><section class="modal-panel compact" role="dialog" aria-modal="true" aria-label="Reportar publicación"><div class="modal-header"><h2>Reportar publicación</h2><button type="button" class="icon-control" data-action="close" aria-label="Cerrar">${icons.close}</button></div><form class="form-stack" id="flag-form"><div class="field"><label for="flag-reason">Motivo</label><select id="flag-reason" name="reason"><option>Acoso</option><option>Datos personales</option><option>Imágenes sin consentimiento</option><option>Otro</option></select></div><div class="field" id="flag-extra-wrap" hidden><label for="flag-details">Describe el motivo</label><textarea id="flag-details" name="details" minlength="10" maxlength="500" rows="4" placeholder="Explica por qué reportas esta funa..."></textarea></div><button class="button-primary fullwidth" type="submit">Enviar reporte</button></form></section></div>`; }
 function renderModal() {
-    const updateDraft = modal.querySelector('#update-text')?.value || '';
+    const updateInput = modal.querySelector('#update-text');
+    if (updateInput)
+        updateDraftText = updateInput.value;
+    const updateDraft = updateDraftText;
     const editDraft = modal.querySelector('#edit-reply-text')?.value;
     const activeId = document.activeElement?.id;
     const currentEdit = modal.querySelector('#edit-reply-form')?.getAttribute('data-id');
+    const oldVideo = modal.querySelector('video');
+    if (oldVideo) {
+        oldVideo.pause();
+        if (document.pictureInPictureElement === oldVideo)
+            void document.exitPictureInPicture().catch(() => { });
+    }
     modal.innerHTML = state.dialogue === 'compose' ? composerDialog() : state.dialogue === 'tiktok' ? tikTokDialog() : state.dialogue === 'flag' ? flagDialog() : state.dialogue === 'guest' ? guestDialog() : state.dialogue === 'image' ? imageDialog() : state.dialogue === 'updates' ? updatesDialog() : '';
     document.body.classList.toggle('modal-open', Boolean(state.dialogue));
     const refill = (id, value) => { const el = modal.querySelector('#' + id); if (el && value !== undefined) {
@@ -499,6 +548,7 @@ function renderModal() {
         refill('update-text', updateDraft);
     if (currentEdit === state.editReplyId && editDraft !== undefined)
         refill('edit-reply-text', editDraft);
+    hydrateEvidence();
 }
 function render() { lastRenderedHash = location.hash; if (!state.user) {
     app.innerHTML = loginView();
@@ -625,7 +675,14 @@ finally {
 function close() { if (modal.querySelector('form[data-sending="1"]')) {
     toast('Espera a que termine la publicación.');
     return;
-} stopUpdates(); state.dialogue = null; state.updatesPost = null; state.flagId = null; state.flagReplyId = null; state.imageFiles = []; renderModal(); }
+} if (state.dialogue === 'image' && viewerReturnUpdates && state.updatesPost) {
+    viewerReturnUpdates = false;
+    previewLoad++;
+    previewLoading = false;
+    state.dialogue = 'updates';
+    renderModal();
+    return;
+} stopUpdates(); previewLoad++; previewLoading = false; updateFiles = []; updateDraftText = ''; state.dialogue = null; state.updatesPost = null; state.flagId = null; state.flagReplyId = null; state.imageFiles = []; renderModal(); }
 function checkImages(files) {
     if (files.length > 10)
         return 'Puedes adjuntar hasta 10 evidencias en total.';
@@ -673,7 +730,7 @@ async function createFuna(form) {
     const entry = { sensitiveContent, id: crypto.randomUUID(), canton, title, description, category: 'Funa', status: 'approved', authorUid: state.user.uid, authorAlias: 'Anónimo', createdAt: Date.now(), images: [] };
     const btn = form.querySelector('button[type=submit]');
     form.dataset.sending = '1';
-    btn.disabled = true;
+    form.querySelectorAll('input,textarea,button').forEach(control => control.disabled = true);
     btn.textContent = 'Publicando...';
     let publishWarning = '';
     try {
@@ -710,7 +767,7 @@ async function createFuna(form) {
     catch (e) {
         const message = e?.code === 'permission-denied' ? 'Firebase rechazó la publicación. Comprueba tu sesión y los permisos del proyecto.' : e?.message || 'No se pudo publicar. Tu texto se conserva para reintentar.';
         toast(message, 'bad');
-        btn.disabled = false;
+        form.querySelectorAll('input,textarea,button').forEach(control => control.disabled = false);
         btn.textContent = 'Publicar';
     }
     finally {
@@ -813,7 +870,7 @@ async function removeOwnComment(id) {
     }
 }
 async function sendUpdate(form) {
-    if (!state.user || !state.updatesPost)
+    if (!state.user || !state.updatesPost || form.dataset.sending === '1')
         return;
     const report = allReports().find(r => r.id === state.updatesPost && r.status === 'approved');
     if (!report || report.authorUid !== state.user.uid)
@@ -824,23 +881,39 @@ async function sendUpdate(form) {
         return;
     }
     const submit = form.querySelector('button[type=submit]');
-    if (submit)
+    if (submit) {
         submit.disabled = true;
+        submit.textContent = 'Publicando…';
+    }
+    form.querySelectorAll('input,textarea,button').forEach(control => control.disabled = true);
+    form.dataset.sending = '1';
+    let warning = '';
     try {
-        if (firebaseEnabled)
-            await addFunaUpdate(report.id, text);
+        if (firebaseEnabled) {
+            const result = await addFunaUpdate(report.id, text, [...updateFiles]);
+            warning = result.warning || '';
+        }
         else {
-            const u = { id: crypto.randomUUID(), reportId: report.id, text, authorUid: state.user.uid, createdAt: Date.now() };
+            const u = { id: crypto.randomUUID(), reportId: report.id, text, authorUid: state.user.uid, createdAt: Date.now(), media: [] };
+            for (const file of updateFiles)
+                u.media.push({ id: String(u.media.length), ownerUid: state.user.uid, name: file.name, type: file.type, size: file.size, chunks: Math.ceil(file.size / (48 * 1024)), localUrl: URL.createObjectURL(file) });
             save(KEY.updates, [...localUpdates(), u]);
         }
+        updateFiles = [];
+        updateDraftText = '';
         form.reset();
+        delete form.dataset.sending;
         renderModal();
-        toast('Actualización publicada con fecha.');
+        toast(warning || 'Actualización publicada con fecha.', warning ? 'bad' : 'ok');
     }
     catch (e) {
         toast(e?.message || 'No se pudo publicar la actualización.', 'bad');
+        form.querySelectorAll('input,textarea,button').forEach(control => control.disabled = false);
         if (submit)
-            submit.disabled = false;
+            submit.textContent = 'Publicar actualización';
+    }
+    finally {
+        delete form.dataset.sending;
     }
 }
 async function sendFlag(form) {
@@ -908,6 +981,22 @@ document.addEventListener('click', async (e) => {
     if (!el)
         return;
     const a = el.dataset.action || '';
+    if (a === 'gallery-open') {
+        if (modal.querySelector('form[data-sending="1"]'))
+            return;
+        viewerReturnUpdates = state.dialogue === 'updates';
+        const r = allReports().find(p => p.id === el.dataset.post);
+        if (r) {
+            previewItems = galleryItems(r, el.dataset.update || undefined);
+            pushOverlayHistory();
+            await previewAt(Number(el.dataset.index || 0));
+        }
+        return;
+    }
+    if (a === 'viewer-prev' || a === 'viewer-next') {
+        await previewAt(previewIndex + (a === 'viewer-next' ? 1 : -1));
+        return;
+    }
     if (a === 'reveal-sensitive') {
         const id = el.dataset.id || '';
         const post = allReports().find(r => r.id === id && ['approved', 'pending'].includes(r.status));
@@ -1062,6 +1151,8 @@ document.addEventListener('click', async (e) => {
         await removeTikTok();
     else if (a === 'updates') {
         stopUpdates();
+        updateFiles = [];
+        updateDraftText = '';
         state.replyTarget = null;
         state.editReplyId = null;
         state.updatesPost = el.dataset.id || null;
@@ -1069,7 +1160,8 @@ document.addEventListener('click', async (e) => {
         state.dialogue = 'updates';
         pushOverlayHistory();
         if (firebaseEnabled)
-            stopUpdates = listenFunaUpdates(state.updatesPost, v => { state.currentUpdates = v; renderModal(); });
+            stopUpdates = listenFunaUpdates(state.updatesPost, v => { state.currentUpdates = v; if (state.dialogue === 'updates' && !modal.querySelector('form[data-sending="1"]'))
+                renderModal(); });
         renderModal();
     }
     else if (a === 'flag') {
@@ -1106,6 +1198,21 @@ document.addEventListener('submit', async (e) => { const form = e.target; if (![
     await editAlias(form); });
 document.addEventListener('change', e => {
     const el = e.target;
+    if (el.id === 'update-images') {
+        const files = Array.from(el.files || []);
+        const error = files.length > 4 ? 'Adjunta hasta cuatro fotos.' : checkImages(files) || (files.some(f => !f.type.startsWith('image/')) ? 'Solo se permiten fotos en las actualizaciones.' : '');
+        if (error) {
+            toast(error, 'bad');
+            el.value = '';
+            updateFiles = [];
+        }
+        else
+            updateFiles = files;
+        const label = document.getElementById('selected-update-images');
+        if (label)
+            label.textContent = updateFiles.map(f => f.name).join(' · ');
+        return;
+    }
     if (el.id === 'flag-reason') {
         const box = document.getElementById('flag-extra-wrap'), field = document.getElementById('flag-details');
         if (box)
@@ -1145,7 +1252,13 @@ document.addEventListener('input', e => { const el = e.target; if (el.id !== 'se
     const q = el.value.trim().toLocaleLowerCase('es');
     grid.innerHTML = rankedCantons().filter(c => c.name.toLocaleLowerCase('es').includes(q)).map(cantonCard).join('') || '<p class="search-empty">Sin resultados.</p>';
 } });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') {
+document.addEventListener('keydown', e => { if (state.dialogue === 'image' && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLSelectElement) && ['ArrowLeft', 'ArrowRight'].includes(e.key)) {
+    e.preventDefault();
+    void previewAt(previewIndex + (e.key === 'ArrowRight' ? 1 : -1));
+    return;
+} if (e.key === 'Escape') {
+    if (document.fullscreenElement)
+        return;
     if (state.menu) {
         state.menu = false;
         if (history.state?.funadosOverlay)

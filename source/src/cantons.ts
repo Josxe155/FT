@@ -22,5 +22,5 @@ export type ReportStatus = 'approved' | 'pending' | 'rejected' | 'deleting';
 export type ReportCategory = 'Funa';
 export type EvidenceMeta = {id:string;ownerUid:string;name:string;type:string;size:number;chunks:number;localUrl?:string};
 export type Report = {id:string;canton:string;title:string;description:string;category:ReportCategory;status:ReportStatus;authorUid:string;authorAlias:string;createdAt:number;images:string[];media?:EvidenceMeta[];sensitiveContent?:boolean};
-export type FunaUpdate = {id:string;reportId:string;text:string;authorUid:string;createdAt:number};
+export type FunaUpdate = {id:string;reportId:string;text:string;authorUid:string;createdAt:number;media?:EvidenceMeta[]};
 export type Reply = {id:string;reportId:string;text:string;authorUid:string;authorAlias:string;createdAt:number;status:ReportStatus;parentId?:string|null;editedAt?:number|null};

@@ -1,59 +1,74 @@
-# 🧹 Retención y limpieza de Funados Todos
+# 🧹 Limpieza manual y retención
 
-## Estado de esta entrega
+## Uso actual
 
-El registro de actividad y la renovación de sesión se publican en la web. El motor de limpieza está implementado y tiene pruebas aisladas. **La ejecución automática permanece desactivada** en `.github/workflows/maintenance.yml` hasta autorizar y configurar su identidad de Google Cloud.
+La limpieza se ejecuta desde **Dashboard → Limpieza manual**, con la cuenta administradora. No depende de una tarea programada ni de que se cree una identidad IAM nueva.
 
-La revisión automática de permisos rechazó crear una cuenta de servicio, un rol con permisos de borrado y un vínculo Workload Identity sin autorización explícita. El alcance propuesto puede revisarse en [google-access-plan.json](../maintenance/google-access-plan.json). No se activó facturación ni se guardaron credenciales privadas en GitHub.
+1. Pulsa **Autorizar revisión con Google** y acepta los permisos adicionales de Firebase para tu propia cuenta propietaria.
+2. Consulta las dos listas: publicaciones candidatas y cuentas inactivas.
+3. Usa **Actualizar revisión** para empezar de nuevo o **Revisar siguientes páginas** para continuar. Se revisan 100 publicaciones antiguas y hasta 1000 cuentas por página; la pantalla distingue una revisión parcial de una completa.
+4. Las cuentas antiguas en margen inicial aparecen para consulta, pero su casilla permanece desactivada. Selecciona hasta 100 elementos elegibles de cada tipo. La revisión y la selección no borran nada.
+5. Pulsa **Eliminar selección** y confirma. El resultado indica eliminaciones, elementos conservados y errores.
+6. Si hubo un fallo parcial, **Reanudar pendientes** continúa los trabajos registrados sin repetir borrados ya terminados.
 
-## Política elegida
+Los recuentos del dashboard se consultan en el servidor. Sus listas normales tienen paginación, búsqueda sobre los registros cargados y actualización cada minuto mientras la pestaña está visible y no se está trabajando sobre el filtro o el detalle. La revisión de limpieza solo se refresca con sus botones; siempre se vuelve a comprobar cada elemento antes de eliminarlo.
 
-| Dato | Condición | Acción |
+## Criterio vigente
+
+| Dato | Condición | Resultado |
 | --- | --- | --- |
-| Publicación | Al menos 30 días desde su creación y **cero Me gusta** en el momento de revisarla. | Se elimina el documento, sus subcolecciones, reportes de moderación asociados y evidencias. |
-| Publicación con apoyo | Uno o más Me gusta, aunque sea antigua. | Se conserva. «Sorprende» y «Preocupa» no cuentan como apoyo. |
-| Cuenta normal | Al menos 30 días sin inicio de sesión ni actividad registrada. | Se elimina de Firebase Authentication y se borran perfil, preferencias, presencia, visita y actividad. |
-| Administración | Correo protegido o claim `admin`/`retentionProtected`. | No se elimina por inactividad. |
-| Cuentas existentes | No había medición fiable antes de esta entrega. | Tienen al menos 30 días desde la **primera ejecución activa** del mantenimiento. |
+| Publicación | Al menos 30 días desde su creación, cero Me gusta, cero Sorprende, cero Preocupa y ningún comentario. | Puede seleccionarse para borrar. |
+| Publicación con participación | Tiene cualquier reacción o comentario, aunque sea antigua. | Se conserva. |
+| Cuenta normal | 30 días sin inicio de sesión ni actividad registrada. | Puede seleccionarse para borrar de Firebase Authentication. |
+| Administración | Correo administrador o claim `admin` / `retentionProtected`. | Siempre se conserva. |
+| Cuentas anteriores a la medición | No había registro fiable de actividad. | Margen mínimo de 30 días desde la inicialización del control de mantenimiento. |
 
-El plazo de publicaciones mide su edad; no son 30 días desde que pierde un Me gusta. Una publicación antigua que quede sin apoyo se elimina en la siguiente ejecución.
+Este criterio sustituye al anterior de «cero Me gusta». Se consulta tanto el resumen de reacciones como la existencia de votos y comentarios reales. Una discrepancia preserva la publicación.
 
-**Eliminar la cuenta no equivale a cerrar sesión.** Al volver, Google o invitado crean una nueva identidad Firebase si la anterior se eliminó; se pierden las preferencias y la autoría operativa del UID anterior. Las publicaciones con apoyo y sus evidencias se conservan, al igual que comentarios y votos que pertenecen a publicaciones conservadas. Esta decisión mantiene coherentes sus recuentos. Las sesiones invitadas eliminadas no son recuperables.
+El plazo mide la edad de la publicación, no 30 días continuos sin reacciones. Las actualizaciones del autor no reinician esa antigüedad. Una publicación antigua que se quede sin participación puede ser candidata al actualizar la revisión.
 
-Firebase invalida las renovaciones de una cuenta eliminada. Un ID token ya emitido puede seguir siendo válido hasta su vencimiento, normalmente una hora. La web fuerza una renovación antes de publicar y cierra la sesión ante credenciales caducadas o cuentas eliminadas.
+## Qué se borra y qué se conserva
 
-## Medición de actividad
+Al borrar una publicación se retiran sus documentos, comentarios y descendientes huérfanos, actualizaciones, reacciones, reportes asociados, evidencias originales y fotos de actualizaciones. Un trabajo de mantenimiento separado permite retomar un fallo aunque haya desaparecido el documento padre.
 
-`activity/{uid}/lastActiveAt` se guarda en Realtime Database con hora del servidor. Solo la cuenta correspondiente puede escribirlo; no puede cambiar el registro de otra ni enviar una fecha inventada. No contiene correos, títulos ni archivos.
+Al eliminar una cuenta se borran su registro de **Firebase Authentication**, perfil, preferencias, presencia, visita y actividad. Se conservan las publicaciones con participación y sus archivos; también los comentarios y votos de publicaciones conservadas, para mantener coherentes sus recuentos.
 
-La web registra al entrar, regresar a una pestaña visible o interactuar. Agrupa las escrituras a un máximo aproximado de una cada quince minutos por pestaña. Una pestaña que permanece abierta sin interacción no mantiene una cuenta activa indefinidamente. El proceso usa el valor más reciente entre creación, último inicio de sesión, actividad y el margen de despliegue.
+**No se elimina la cuenta personal de Google.** Si la cuenta Firebase anterior se eliminó, al regresar con Google o invitado se creará una identidad nueva. No recuperará la autoría operativa ni las preferencias del UID anterior. Las sesiones invitadas eliminadas no son recuperables.
 
-## Ejecución prevista sin activar Blaze
+Un ID token ya emitido puede seguir siendo válido hasta su vencimiento, normalmente una hora. La web fuerza una renovación antes de publicar y regresa al acceso si la cuenta se eliminó o sus credenciales caducaron.
 
-GitHub Actions ejecutaría el proceso diariamente a las **05:23 UTC**, fuera del navegador del administrador. No depende de que una persona tenga abierto el panel. Los horarios de GitHub pueden retrasarse; no se garantiza eliminación al segundo exacto de cumplir 30 días. En repositorios públicos, GitHub puede desactivar tareas programadas después de 60 días sin actividad del repositorio; revisa Actions y sus avisos para mantener la tarea habilitada.
+## Autorización y seguridad
 
-Se propone OIDC/Workload Identity Federation: GitHub recibe credenciales temporales solo para este repositorio, su rama `main` y el archivo concreto del workflow. No se almacena una clave de cuenta de servicio. El rol no incluye facturación ni administración del proyecto, pero tiene permisos sensibles de lectura, escritura y borrado sobre sus datos y usuarios. IAM no restringe esos permisos a documentos individuales; el código probado aplica la política.
+El acceso normal al dashboard requiere correo administrador verificado en Firebase. Para listar y borrar cuentas de Authentication hace falta además autorización OAuth de la cuenta que **ya tiene permisos de administración en el proyecto de Google Cloud/Firebase**. Un ID token del cliente no concede por sí solo esos permisos.
 
-Para activar tras la aprobación: crear la identidad y su vínculo con el alcance de `google-access-plan.json`, comprobar un `dry-run` autenticado y cambiar el bloqueo `if: false` del workflow por `if: true`. El primer push de activación ejecuta solo una simulación. Las ejecuciones programadas usarían `apply`; la ejecución manual permite elegir el modo y empieza por `dry-run`.
+El botón solicita los ámbitos OAuth `datastore`, `firebase`, `firebase.database` y `userinfo.email`, además de la identidad habitual del acceso con Google. Se usa `reauthenticateWithPopup`, para impedir autorizar por error otra cuenta distinta de la que tiene abierto el panel. Las APIs de Google comprueban los permisos reales de esa cuenta en cada solicitud.
 
-## Integridad y reintentos
+El token se conserva solo en memoria, no en localStorage, archivos de Hosting, GitHub ni registros. La aplicación pide renovar la autorización después de unos 50 minutos o si Google la rechaza. Al cerrar sesión se pierde el acceso del módulo. Google puede mostrar un consentimiento adicional o exigir requisitos de verificación de su aplicación OAuth; no debe omitirse ese consentimiento ni introducir credenciales privadas en el navegador.
 
-- Se comprueba tanto el contador como la existencia de votos «Me gusta». Una discrepancia conserva la publicación.
-- Una transacción vuelve a comprobar la publicación y bloquea nuevas interacciones al marcarla como `deleting`.
-- Se bloquean y borran archivos, se retiran reportes asociados y se eliminan recursivamente comentarios, actualizaciones y reacciones.
-- Los trabajos pendientes sobreviven a fallos parciales para retomarse en otra ejecución, incluso si falta el documento padre.
-- El proceso vuelve a comprobar la actividad antes de eliminar cada cuenta.
-- Hay un bloqueo de ejecución, topes de 100 publicaciones y 100 cuentas por ejecución, paginación y límites de exploración. Una cola grande puede necesitar varios días.
-- Una simulación no modifica datos ni inicializa el margen. El borrado activo requiere `--apply` y habilitación explícita para producción.
+No se creó una cuenta de servicio ni se concedieron roles IAM persistentes. El workflow automático previo permanece desactivado como ejemplo; su plan IAM es una alternativa histórica y no es necesario para el panel manual. No se activó facturación.
 
-## Comandos y pruebas
+## Actividad y consistencia
+
+`activity/{uid}/lastActiveAt` se escribe con hora del servidor. Cada usuario solo puede registrar su propia actividad, sin inventar una fecha ni modificar cuentas ajenas. La cuenta administradora verificada puede consultar los registros de actividad para esta revisión.
+
+La web agrupa actividad de pestañas visibles e interacción reciente a un máximo aproximado de una escritura cada quince minutos por pestaña. Una pestaña abandonada no mantiene activa indefinidamente la cuenta.
+
+El mantenimiento toma un bloqueo para evitar ejecuciones simultáneas y lo renueva mientras trabaja. La publicación se vuelve a comprobar dentro de una transacción y pasa a `deleting`, estado que impide nuevas reacciones y comentarios. Los archivos se bloquean antes del borrado. Una nueva actividad o reacción detectada antes de confirmar la eliminación conserva el elemento. No existe una transacción común entre Authentication, Firestore y RTDB; se minimiza esa ventana con una segunda lectura y trabajos reanudables.
+
+No cierres la pestaña durante el proceso. Si la autorización o la conexión caduca, los trabajos incompletos quedan pendientes. Un bloqueo interrumpido de otra pestaña expira en 30 minutos. No se garantiza disponibilidad ilimitada: la revisión y el borrado consumen cuotas de Firebase. El mayor ahorro procede de los archivos, no de los pequeños registros de Authentication.
+
+## Pruebas
 
 ```sh
 npm ci --prefix maintenance
+npm ci --prefix qa
 npm test --prefix maintenance
 npx -y firebase-tools@latest emulators:exec --only auth,firestore,database --project demo-funados-security 'node maintenance/test/integration.mjs && node qa/test_rules.mjs'
+python -m http.server 5000 --bind 127.0.0.1 --directory web
+# En otra terminal, con Playwright y Chromium:
+python qa/test_dashboard.py
+python qa/test_media.py
+node qa/test_media_adapter.mjs
 ```
 
-Las pruebas incluyen apoyo, antigüedad, actividad reciente, administrador, margen inicial, subcolecciones, evidencias, archivos que deben conservarse, simulación, reintento y ejecución repetida. El proyecto `demo-` impide usar accidentalmente los servicios de producción.
-
-La carpeta `maintenance/` y sus dependencias **no se incluyen en Hosting**. Solo se publica `web/`. El mantenimiento consume cuotas de lecturas, escrituras y eliminaciones; automatizarlo no hace que Firebase sea ilimitado. Borrar usuarios de Authentication libera principalmente perfiles y preferencias pequeños; el mayor ahorro llega de eliminar evidencias de publicaciones caducadas.
+`test_dashboard.py` utiliza servicios y tokens ficticios; comprueba búsqueda, paginación, selección, cancelación, datos que cambiaron después de revisar, borrado en cascada y reanudación. Los emuladores comprueban permisos reales de las reglas y la lógica de retención. Se probó también el flujo de APIs reales con una publicación privada creada solo para QA, sin eliminar cuentas reales. El consentimiento interactivo de Google debe completarlo la persona administradora desde el panel.

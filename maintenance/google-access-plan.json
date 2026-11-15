@@ -1,5 +1,5 @@
 {
-  "status": "pending-explicit-approval",
+  "status": "not-required-for-manual-dashboard",
   "project": "funados-todos",
   "projectNumber": "667015999103",
   "serviceAccount": "funados-maintenance@funados-todos.iam.gserviceaccount.com",
@@ -28,6 +28,7 @@
     ]
   },
   "notes": [
+    "El dashboard vigente usa la autorización temporal del propietario. Este plan automático es solo una alternativa desactivada.",
     "Plan propuesto: no se ha creado esta identidad ni se han concedido estos permisos.",
     "No se propone acceso a facturación, otras cuentas de servicio ni administración del proyecto.",
     "IAM concede acceso al proyecto y no limita por documento: el programa y la confianza del workflow delimitan qué se elimina.",

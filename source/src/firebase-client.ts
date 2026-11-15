@@ -150,7 +150,12 @@ export function listenReports(onData: (list: Report[])=>void, uid: string,onErro
 // Firestore almacena EXCLUSIVAMENTE referencias y metadatos, nunca bytes de vídeo o imagen.
 const CHUNK_BYTES=48*1024;
 const mediaCache=new Map<string,string>();
-const mediaRoot=(owner:string,post:string,file:string)=>`evidence/${owner}/${post}/files/${file}`;
+const mediaSizes=new Map<string,number>(),mediaLoads=new Map<string,Promise<string>>();let cachedMediaBytes=0,mediaEpoch=0;
+function cacheMedia(path:string,url:string,size:number){
+ mediaCache.set(path,url);mediaSizes.set(path,size);cachedMediaBytes+=size;
+ while(mediaCache.size>24||cachedMediaBytes>48*1024*1024){const oldest=mediaCache.keys().next().value;if(!oldest||oldest===path)break;URL.revokeObjectURL(mediaCache.get(oldest)!);cachedMediaBytes-=mediaSizes.get(oldest)||0;mediaCache.delete(oldest);mediaSizes.delete(oldest);}
+}
+const mediaRoot=(owner:string,post:string,file:string,updateId?:string)=>updateId?`evidenceUpdates/${owner}/${post}/${updateId}/files/${file}`:`evidence/${owner}/${post}/files/${file}`;
 function encodeBlock(buf:Uint8Array):string {
   let binary='';
   for(let start=0;start<buf.length;start+=8192)binary+=String.fromCharCode(...buf.subarray(start,start+8192));
@@ -162,11 +167,13 @@ function decodeBlock(value:string):Uint8Array {
   return bytes;
 }
 export function realtimeMediaAvailable(){return Boolean(modules?.database && rtdb);}
-export function clearEvidenceCache(){mediaCache.forEach(v=>URL.revokeObjectURL(v));mediaCache.clear();}
-export async function loadEvidenceURL(reportId:string,item:EvidenceMeta):Promise<string>{
-  if(item.localUrl)return item.localUrl;
-  const path=mediaRoot(item.ownerUid,reportId,item.id);
-  if(mediaCache.has(path))return mediaCache.get(path)!;
+export function clearEvidenceCache(){mediaCache.forEach(v=>URL.revokeObjectURL(v));mediaCache.clear();mediaSizes.clear();cachedMediaBytes=0;mediaEpoch++;mediaLoads.clear();}
+export async function loadEvidenceURL(reportId:string,item:EvidenceMeta,updateId?:string):Promise<string>{
+  if(item.localUrl&&!firebaseEnabled&&/^(blob:|data:(image\/(png|jpeg|webp)|video\/(mp4|webm|quicktime));base64,)/.test(item.localUrl))return item.localUrl;
+  const path=mediaRoot(item.ownerUid,reportId,item.id,updateId);
+  if(mediaCache.has(path)){const url=mediaCache.get(path)!;mediaCache.delete(path);mediaCache.set(path,url);return url;}
+  const running=mediaLoads.get(path);if(running)return running;const epoch=mediaEpoch;
+  const pending=(async()=>{
   if(!realtimeMediaAvailable())throw new Error('Falta configurar Realtime Database.');
   const d=modules.database;
   const snap=await d.get(d.ref(rtdb,`${path}/chunks`));
@@ -182,14 +189,18 @@ export async function loadEvidenceURL(reportId:string,item:EvidenceMeta):Promise
   }
   if(total!==item.size)throw new Error('La evidencia está incompleta.');
   const blob=new Blob(bytes as BlobPart[],{type:item.type});
-  const url=URL.createObjectURL(blob);mediaCache.set(path,url);return url;
+  if(epoch!==mediaEpoch)throw new Error('La sesión de archivos ha cambiado.');
+  const url=URL.createObjectURL(blob);cacheMedia(path,url,item.size);return url;
+  })();
+  mediaLoads.set(path,pending);
+  try{return await pending;}finally{if(mediaLoads.get(path)===pending)mediaLoads.delete(path);}
 }
-async function uploadEvidence(file:File,owner:string,reportId:string,slot:number):Promise<EvidenceMeta>{
+async function uploadEvidence(file:File,owner:string,reportId:string,slot:number,updateId?:string):Promise<EvidenceMeta>{
   const d=modules.database;
   const id=String(slot); // RTDB permite únicamente posiciones 0–9 para imponer diez evidencias.
   const chunks=Math.ceil(file.size/CHUNK_BYTES);
   const media:EvidenceMeta={id,ownerUid:owner,name:file.name.slice(0,90),type:file.type,size:file.size,chunks};
-  const path=mediaRoot(owner,reportId,id);
+  const path=mediaRoot(owner,reportId,id,updateId);
   await d.set(d.ref(rtdb,`${path}/meta`),{...media,createdAt:d.serverTimestamp()});
   // Agrupa los fragmentos en lotes de 12: evita cientos de viajes de red por vídeo.
   const tasks:Promise<void>[]=[];
@@ -344,7 +355,7 @@ export async function deleteOwnReply(reportId:string,replyId:string) {
 }
 
 /** Actualizaciones añadidas por el autor: no sustituyen al texto original. */
-export type FunaUpdate = {id:string;reportId:string;text:string;authorUid:string;createdAt:number};
+export type FunaUpdate = {id:string;reportId:string;text:string;authorUid:string;createdAt:number;media?:EvidenceMeta[]};
 export function listenFunaUpdates(reportId:string, onData:(list:FunaUpdate[])=>void){
   if(!modules)return ()=>{};
   const f=modules.firestore;
@@ -352,10 +363,23 @@ export function listenFunaUpdates(reportId:string, onData:(list:FunaUpdate[])=>v
     (snap:any)=>onData(snap.docs.map((d:any)=>({id:d.id,reportId,...d.data(),createdAt:d.data().createdAt?.toMillis?.()||Date.now()}))),
     (err:any)=>console.warn('No se pudieron obtener las actualizaciones:',err));
 }
-export async function addFunaUpdate(reportId:string,text:string) {
-  if(!modules||!auth?.currentUser)throw new Error('Inicia sesión para publicar.');
-  const f=modules.firestore;
-  await f.addDoc(f.collection(db,'reports',reportId,'updates'),{reportId,text,authorUid:auth.currentUser.uid,createdAt:f.serverTimestamp()});
+export async function addFunaUpdate(reportId:string,text:string,files:File[]=[]):Promise<{warning?:string}> {
+ if(!modules||!auth?.currentUser)throw new Error('Inicia sesión para publicar.');
+ const owner=auth.currentUser.uid;await requireCurrentSession(owner);
+ if(files.length>4||files.some(f=>!['image/png','image/jpeg','image/webp'].includes(f.type)||f.size<=0||f.size>5*1024*1024))throw new Error('Adjunta hasta cuatro fotos JPG, PNG o WebP de 5 MB como máximo.');
+ if(files.length&&!realtimeMediaAvailable())throw new Error('Las evidencias no están disponibles ahora.');
+ const f=modules.firestore,ref=f.doc(f.collection(db,'reports',reportId,'updates'));
+ const media:EvidenceMeta[]=[];let saved=false;
+ try{
+  for(const [slot,file] of files.entries())media.push(await uploadEvidence(file,owner,reportId,slot,ref.id));
+  await f.setDoc(ref,{reportId,text,authorUid:owner,media,createdAt:f.serverTimestamp()});saved=true;
+  if(files.length)await modules.database.set(modules.database.ref(rtdb,`evidenceVisibility/${owner}/${reportId}`),{ownerUid:owner,visible:true});
+  return {};
+ }catch(error){
+  if(saved)return {warning:'La actualización se guardó, pero sus fotos no quedaron visibles. Contacta con moderación; no la publiques otra vez.'};
+  if(files.length)await modules.database.remove(modules.database.ref(rtdb,`evidenceUpdates/${owner}/${reportId}/${ref.id}`)).catch(()=>{});
+  throw error;
+ }
 }
 
 /** Votos privados y totales públicos de cada comentario, en una transacción. */

@@ -27,7 +27,7 @@ export async function maintain({db,rtdb,auth,apply=false,now=Date.now(),settings
   if(!reportId||!authorUid||reportId!==job.id)throw new Error('Invalid report cleanup job');
   // Bloquear antes de borrar. Los trabajos separados permiten retomar fallos parciales.
   await rtdb.ref('blockedEvidence/'+reportId).set(true);
-  await rtdb.ref().update({[`evidence/${authorUid}/${reportId}`]:null,[`evidenceVisibility/${authorUid}/${reportId}`]:null,[`evidenceVisibility/${reportId}`]:null});
+  await rtdb.ref().update({[`evidence/${authorUid}/${reportId}`]:null,[`evidenceUpdates/${authorUid}/${reportId}`]:null,[`evidenceVisibility/${authorUid}/${reportId}`]:null,[`evidenceVisibility/${reportId}`]:null});
   for(;;){
    const flags=await db.collection('flags').where('reportId','==',reportId).limit(200).get();
    if(flags.empty)break;
@@ -41,14 +41,14 @@ export async function maintain({db,rtdb,auth,apply=false,now=Date.now(),settings
  async function considerReport(snap){
   const ref=snap.ref;
   if(!apply){
-   const [counts,votes]=await Promise.all([ref.collection('reactionStats').doc('summary').get(),ref.collection('reactions').where('kind','==','like').limit(1).get()]);
-   if(shouldDeleteReport(snap.data(),{like:counts.exists?counts.get('like'):0},now,settings)&&votes.empty)result.reportsEligible++;
+   const [counts,votes,comments]=await Promise.all([ref.collection('reactionStats').doc('summary').get(),ref.collection('reactions').where('kind','in',['like','wow','concern']).limit(1).get(),ref.collection('replies').limit(1).get()]);
+   if(shouldDeleteReport(snap.data(),counts.exists?counts.data():{like:0,wow:0,concern:0},now,settings,!comments.empty)&&votes.empty)result.reportsEligible++;
    return;
   }
   const jobRef=db.doc('maintenanceReportJobs/'+snap.id);
   const selected=await db.runTransaction(async tx=>{
-   const [fresh,counts,votes]=await Promise.all([tx.get(ref),tx.get(ref.collection('reactionStats').doc('summary')),tx.get(ref.collection('reactions').where('kind','==','like').limit(1))]);
-   if(!fresh.exists||!shouldDeleteReport(fresh.data(),{like:counts.exists?counts.get('like'):0},now,settings)||!votes.empty)return false;
+   const [fresh,counts,votes,comments]=await Promise.all([tx.get(ref),tx.get(ref.collection('reactionStats').doc('summary')),tx.get(ref.collection('reactions').where('kind','in',['like','wow','concern']).limit(1)),tx.get(ref.collection('replies').limit(1))]);
+   if(!fresh.exists||!shouldDeleteReport(fresh.data(),counts.exists?counts.data():{like:0,wow:0,concern:0},now,settings,!comments.empty)||!votes.empty)return false;
    const authorUid=fresh.get('authorUid');if(typeof authorUid!=='string'||!authorUid)return false;
    tx.set(jobRef,{reportId:snap.id,authorUid,startedAt:Timestamp.fromMillis(now)});
    tx.update(ref,{status:'deleting'});return true;

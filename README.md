@@ -113,7 +113,7 @@ Al llegar a una cuota gratuita pueden fallar lecturas, escrituras o descargas. R
 | `python qa/test_ui.py 390` | Recorre la interfaz con Chromium y datos locales. |
 | `python qa/test_sensitive.py` | Comprueba ocultación y revelado en cuatro anchos. |
 
-Las pruebas Python necesitan Playwright, Pillow y Chromium. Las pruebas locales de interfaz no demuestran por sí solas que los permisos remotos sean correctos.
+Las pruebas Python necesitan Playwright, Pillow y Chromium; la prueba de vídeo también requiere FFmpeg. Las pruebas locales de interfaz no demuestran por sí solas que los permisos remotos sean correctos.
 
 ## ☁️ Publicar en Firebase
 
@@ -127,11 +127,26 @@ npx -y firebase-tools@latest deploy --only hosting,firestore:rules,firestore:ind
 
 El directorio de Hosting es **`web/`**. Subir un commit a GitHub no publica automáticamente la web. Comprueba y prueba cambios de reglas antes de desplegarlos.
 
-## 🧹 Retención de datos
+## 🎞️ Multimedia y actualizaciones
 
-Se ha implementado la política elegida: publicaciones de al menos **30 días y cero Me gusta**, y cuentas normales sin actividad durante 30 días. Incluye limpieza de evidencias, comentarios y datos asociados; protege a administración y da margen inicial a cuentas existentes.
+- **Carrusel de evidencias:** desliza, usa las flechas o el teclado; amplía una imagen y recorre los demás archivos desde el visor.
+- **Reproductor propio:** reproducción/pausa, avance, volumen, silencio, velocidad, pantalla completa y ventana flotante cuando el navegador lo permita. No reproduce automáticamente.
+- **Actualizaciones del autor:** mensajes fechados con hasta cuatro fotos de 5 MB cada una. El borrador se conserva al ampliar una imagen.
+- **Archivos originales:** se pueden descargar desde el visor. Algunos formatos MOV dependen de los códecs del navegador.
 
-**La limpieza programada todavía no está activada:** requiere aprobar una identidad de mantenimiento con permisos de borrado. El registro de actividad y la renovación de sesión se publican independientemente. Consulta [política, pruebas y activación pendiente](docs/RETENCION.md). El borrado de una cuenta crea una nueva identidad al volver a entrar; no es solo un cierre de sesión.
+## 🧹 Limpieza manual desde el dashboard
+
+En **[Dashboard → Limpieza manual](https://funados-todos.web.app/dashboard.html)**:
+
+1. Entra con la cuenta administradora y pulsa **Autorizar revisión con Google**.
+2. Revisa publicaciones y cuentas; usa **Actualizar revisión** o continúa con las siguientes páginas.
+3. Selecciona los elementos y pulsa **Eliminar selección**. Se pide confirmación antes del borrado.
+
+La política vigente conserva cualquier publicación con reacciones **o comentarios**. Son candidatas las de al menos **30 días sin ninguna reacción ni comentario**. Las cuentas normales sin actividad durante 30 días también pueden seleccionarse; administración está protegida y las cuentas anteriores tienen margen inicial.
+
+La autorización temporal utiliza los permisos que la cuenta propietaria ya tiene en Firebase. No hay claves privadas, cuentas de servicio nuevas ni cambios de facturación. El token de Google queda en memoria y se debe renovar cuando caduque. **El workflow automático anterior sigue desactivado y no es necesario para usar el botón.**
+
+Eliminar una cuenta de Firebase no elimina su cuenta personal de Google. Al volver a esta web tendrá una identidad nueva. Consulta [política, permisos, pruebas y reanudación](docs/RETENCION.md).
 
 ## 📂 Estructura
 
@@ -143,7 +158,7 @@ Funados-Todos/
 ├── assets/               Copia estática sincronizada
 ├── scripts/              Compilación y comprobaciones
 ├── maintenance/          Motor de retención y pruebas; fuera de Hosting
-├── .github/workflows/    Tarea diaria preparada, pendiente de activación
+├── .github/workflows/    Ejemplo automático desactivado
 ├── qa/                   Pruebas y resultados
 ├── docs/                 Seguridad y mantenimiento
 ├── config.js             Configuración pública Firebase
@@ -156,7 +171,8 @@ Funados-Todos/
 
 | Guía | Contenido |
 | :--- | :--- |
-| [Retención y limpieza](docs/RETENCION.md) | Política de 30 días, pruebas y automatización pendiente. |
+| [Galerías y vídeos](docs/MULTIMEDIA.md) | Reproductor, carrusel, actualizaciones con fotos y límites de formatos. |
+| [Retención y limpieza](docs/RETENCION.md) | Botón manual, política de 30 días, permisos y pruebas. |
 | [Seguridad y revisión](docs/SEGURIDAD.md) | API key, permisos, caducidad, límites y pruebas. |
 | [Auditoría estructurada](docs/auditoria-reglas.json) | Hallazgos y alcance de la evaluación. |
 | [Resultados](qa/RESULTADOS.txt) | Verificaciones de interfaz y pruebas reales anteriores. |

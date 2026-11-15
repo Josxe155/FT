@@ -17,7 +17,11 @@ try{
  }
  await db.doc('reports/inconsistent/reactions/someone').set({kind:'like'});
  await db.doc('reports/expired/replies/comment/reactions/vote').set({kind:'like'});
- await db.doc('reports/expired/replies/comment').set({text:'test'});
+ // El padre falta: hay un voto huérfano que también debe limpiarse.
+ await db.doc('reports/commented').set({id:'commented',authorUid:'active',createdAt:Timestamp.fromMillis(old),status:'approved'});
+ await db.doc('reports/commented/replies/comment').set({text:'Conversación que se conserva'});
+ await db.doc('reports/wow').set({id:'wow',authorUid:'active',createdAt:Timestamp.fromMillis(old),status:'approved'});
+ await db.doc('reports/wow/reactionStats/summary').set({like:0,wow:1,concern:0});
  await db.doc('flags/for-expired').set({reportId:'expired'});
  await rtdb.ref('evidence/idle/expired').set({files:{0:{meta:{name:'file'},chunks:{0:'YWJj'}}}});
  await rtdb.ref('evidence/idle/supported').set({keep:true});
@@ -34,7 +38,7 @@ try{
  assert.equal((await db.doc('flags/for-expired').get()).exists,false);
  assert.equal((await rtdb.ref('evidence/idle/expired').get()).exists(),false);
  assert.equal((await rtdb.ref('evidenceVisibility/idle/expired').get()).exists(),false);
- for(const id of ['supported','fresh','inconsistent'])assert.equal((await db.doc('reports/'+id).get()).exists,true);
+ for(const id of ['supported','fresh','inconsistent','commented','wow'])assert.equal((await db.doc('reports/'+id).get()).exists,true);
  assert.equal((await rtdb.ref('evidence/idle/supported').get()).exists(),true);
  await assert.rejects(auth.getUser('idle'),e=>e.code==='auth/user-not-found');
  for(const uid of ['active','protected','recent-login'])assert.equal((await auth.getUser(uid)).uid,uid);
@@ -48,5 +52,5 @@ try{
  // Una ejecución inicial da margen a las cuentas existentes.
  await auth.importUsers([{uid:'legacy',metadata:{creationTime:new Date(old).toISOString(),lastSignInTime:new Date(old).toISOString()}}]);
  await db.doc('maintenance/control').delete();const initial=await maintain({...api,apply:true});assert.equal(initial.usersDeleted,0);assert.equal((await auth.getUser('legacy')).uid,'legacy');
- console.log('PASS mantenimiento: vista previa, cero likes, frescura, autor protegido, actividad, acceso reciente, cascada, reintento y margen inicial');
+ console.log('PASS mantenimiento: vista previa, cero reacciones/comentarios, frescura, autor protegido, actividad, acceso reciente, cascada, reintento y margen inicial');
 }finally{await deleteApp(app);}

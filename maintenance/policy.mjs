@@ -5,10 +5,10 @@ export function millis(value) {
   if (typeof value === 'string' && value) {const n = Date.parse(value); return Number.isFinite(n) ? n : null;}
   return null;
 }
-export function shouldDeleteReport(report, counts, now, policy) {
-  const created = millis(report?.createdAt);
-  return created !== null && created <= now - policy.reportRetentionDays * DAY
-    && Number.isInteger(counts?.like) && counts.like >= 0 && counts.like <= policy.maxLikesToDelete;
+export function shouldDeleteReport(report, counts, now, policy, hasComments=false) {
+  const created=millis(report?.createdAt);
+  return created!==null&&created<=now-policy.reportRetentionDays*DAY&&!hasComments
+    && ['like','wow','concern'].every(k=>Number.isInteger(counts?.[k])&&counts[k]===0);
 }
 export function protectedUser(user, policy) {
   return policy.protectedEmails.includes(String(user.email || '').toLowerCase())
