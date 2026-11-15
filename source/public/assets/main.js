@@ -604,7 +604,8 @@ async function enterGuest(alias) { if (state.busy)
         await saveAlias(credential.user.uid, nickname);
         if (state.user?.isAnonymous) {
             state.user.alias = nickname;
-            render();
+            if (!state.dialogue)
+                render();
         }
     }
     else {
@@ -615,14 +616,16 @@ async function enterGuest(alias) { if (state.busy)
         }
         setUser({ uid: id, alias: nickname, isAnonymous: true });
     }
-    close();
+    if (state.dialogue === 'guest')
+        close();
 }
 catch (e) {
     toast(e?.message || 'No se pudo iniciar sesión', 'bad');
 }
 finally {
     state.busy = false;
-    render();
+    if (!state.dialogue)
+        render();
 } }
 async function logOut() { try {
     if (firebaseEnabled)

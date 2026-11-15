@@ -100,3 +100,8 @@ MULTIMEDIA Y DASHBOARD MANUAL — 15 NOV 2026
 - PASS descargas: un vídeo con nombre de documento antiguo «video.exe» se
   descarga como WebM; los bytes se conservan y no se ofrece descarga directa
   de URLs HTTPS antiguas de terceros.
+- PASS producción tras corregir la respuesta tardía de acceso como invitado:
+  publicación con vídeo WebM, reproducción real, actualización con cuatro fotos,
+  lectura de las fotos desde otro invitado y carga del dashboard.
+- La finalización del acceso invitado conserva los formularios y visores abiertos;
+  los datos y las dos cuentas anónimas de QA se retiraron al terminar.
