@@ -222,8 +222,10 @@ export function trackPresence(user: User, onCount:(count:number)=>void) {
 export async function trackVisit(user: User) {
   if (!modules?.database || !rtdb) return;
   const d=modules.database, ref=d.ref(rtdb,`visits/${user.uid}`);
-  const snap=await d.get(ref);
-  if (!snap.exists()) await d.set(ref,{firstSeen:d.serverTimestamp()});
+  // Las reglas permiten crear la visita propia, pero su lectura es administrativa.
+  // Una segunda visita rechaza la escritura y conserva la fecha original.
+  try { await d.set(ref,{firstSeen:d.serverTimestamp()}); }
+  catch (error:any) { if (!/permission.denied/i.test(String(error?.code||''))) throw error; }
 }
 export async function saveTikTok(username:string,user:User) {
   if (!modules) throw new Error('Firebase no disponible');

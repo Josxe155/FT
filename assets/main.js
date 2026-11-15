@@ -244,6 +244,7 @@ const icons = { arrow: ico('<path d="M4 12h15m-6-6 6 6-6 6"/>'), out: ico('<path
 const googleIcon = `<svg width="22" height="22" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.23 5.48-4.72 7.18l7.73 6C44.46 38.03 46.98 31.86 46.98 24.55z"/><path fill="#FBBC05" d="M10.53 28.59a14.41 14.41 0 0 1 0-9.18l-7.98-6.19a24 24 0 0 0 0 21.56z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.91-5.8l-7.73-6c-2.15 1.45-4.92 2.3-8.18 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>`;
 const allReports = () => firebaseEnabled ? state.remoteReports : state.reports;
 const postLookups = new Set();
+const finishedPostLookups = new Set();
 let myReportCountRemote = null;
 const allReplies = () => firebaseEnabled ? state.remoteReplies : state.replies;
 const count = (slug) => state.cantonTotals[slug] ?? allReports().filter(p => p.canton === slug && p.status === 'approved').length;
@@ -376,13 +377,16 @@ function singleView(id) {
         void fetchReportById(id).then(result => {
             if (result && !state.remoteReports.some(p => p.id === result.id))
                 state.remoteReports.push(result);
+            finishedPostLookups.add(id);
             if (segs()[0] === 'funa' && segs()[1] === id)
                 render();
-        }).catch(err => { console.warn('No se encontró la publicación:', err); if (segs()[1] === id)
-            toast('No se pudo cargar la funa. Comprueba los permisos.', 'bad'); });
+        }).catch(err => { finishedPostLookups.add(id); console.warn('No se encontró la publicación:', err); if (segs()[1] === id) {
+            toast('No se pudo cargar la funa. Comprueba los permisos.', 'bad');
+            render();
+        } });
     }
     if (!r)
-        return `<main class="main-area detail-area"><button class="back-link" data-action="nav" data-page="inicio">${icons.back} Inicio</button><div class="empty-state"><h2>Buscando publicación...</h2></div></main>`;
+        return `<main class="main-area detail-area"><button class="back-link" data-action="nav" data-page="inicio">${icons.back} Inicio</button><div class="empty-state"><h2>${!firebaseEnabled || finishedPostLookups.has(id) ? 'Publicación no disponible' : 'Buscando publicación...'}</h2><p>Si el enlace es correcto, la publicación puede haber sido retirada.</p></div></main>`;
     return `<main class="main-area detail-area"><button class="back-link" data-action="nav" data-page="canton/${esc(r.canton)}">${icons.back} ${esc(cantonMap[r.canton]?.name || 'Cantón')}</button><div class="feed">${reportCard(r)}</div></main>`;
 }
 function commentReactionBar(r) { const totals = commentCounts(r.reportId, r.id), own = myCommentVote(r.reportId, r.id); return `<div class="comment-reactions" data-comment-id="${esc(r.id)}" aria-label="Reacciones al comentario">${reactionKinds.map(([kind, emoji, label]) => `<button type="button" class="comment-react-button ${own === kind ? 'react-selected' : ''}" data-action="react-comment" data-parent="${esc(r.reportId)}" data-id="${esc(r.id)}" data-kind="${kind}" aria-label="${label}" aria-pressed="${own === kind}"><span aria-hidden="true">${emoji}</span> <span class="react-number">${totals[kind]}</span></button>`).join('')}</div>`; }
@@ -513,7 +517,7 @@ function render() { lastRenderedHash = location.hash; if (!state.user) {
             field.focus();
     }
 } watchVisibleReactions(); watchVisibleCommentReactions(); hydrateEvidence(); }
-function setUser(user) { postLookups.clear(); myReportCountRemote = null; revealedSensitivePosts.clear(); if (!user)
+function setUser(user) { postLookups.clear(); finishedPostLookups.clear(); myReportCountRemote = null; revealedSensitivePosts.clear(); if (!user)
     clearEvidenceCache(); if (user?.isAnonymous)
     user = { ...user, alias: read(KEY.alias, user.alias || 'Invitado') }; state.user = user; state.remoteReports = []; state.remoteReplies = []; state.cantonTotals = {}; state.currentUpdates = []; state.commentReactions = {}; state.myCommentReactions = {}; state.updatesPost = null; state.replyTarget = null; state.editReplyId = null; stopUpdates(); stopCommentReactionWatch(); state.reactions = {}; state.myReactions = {}; reactionObserver?.disconnect(); reactionObserver = null; stopReactionListeners.forEach(stop => stop()); stopReactionListeners = []; stopReports(); stopReplies(); stopTikTok(); stopPresence(); if (user && firebaseEnabled) {
     void countMyReports(user.uid).then(n => { if (state.user?.uid === user.uid) {
@@ -714,12 +718,16 @@ async function sendReply(form) {
             state.replies.push({ id: crypto.randomUUID(), reportId: state.thread, text: value, authorUid: state.user.uid, authorAlias: 'Anónimo', status: 'approved', createdAt: Date.now(), ...(parent ? { parentId: parent } : {}) });
             save(KEY.replies, state.replies);
         }
+        form.reset();
         state.replyTarget = null;
         renderInlineThread();
         toast(parent ? 'Respuesta publicada.' : 'Comentario publicado.');
     }
     catch (e) {
         toast(e?.message || 'No se pudo publicar el comentario.', 'bad');
+    }
+    finally {
+        delete form.dataset.sending;
         if (submit)
             submit.disabled = false;
     }
@@ -802,6 +810,7 @@ async function sendUpdate(form) {
             const u = { id: crypto.randomUUID(), reportId: report.id, text, authorUid: state.user.uid, createdAt: Date.now() };
             save(KEY.updates, [...localUpdates(), u]);
         }
+        form.reset();
         renderModal();
         toast('Actualización publicada con fecha.');
     }
@@ -1124,7 +1133,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') {
     else if (state.thread)
         toggleInlineThread(state.thread);
     return;
-} if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && e.target instanceof HTMLTextAreaElement) {
+} if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.isComposing && e.target instanceof HTMLTextAreaElement) {
     const form = e.target.closest('form');
     if (form) {
         e.preventDefault();

@@ -29,7 +29,7 @@ with sync_playwright() as p:
   else:page.locator('.hamburger').click();page.locator('.side-panel [data-page="ajustes"]').click()
   page.locator('#pref-animations').uncheck(force=True)
   assert page.evaluate('document.documentElement.classList.contains("reduce-animations")')
-  page.locator('.signout-button').click();assert page.locator('h1').first.inner_text()=='Inicio de sesión'
+  page.get_by_role('button',name='Cerrar sesión',exact=True).click();assert page.locator('h1').first.inner_text()=='Inicio de sesión'
   assert not errors,errors
   print('EXTRA PASS',width,'mobile back/Escape, TikTok, preferences, sign-out')
   page.close()

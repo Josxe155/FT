@@ -1,25 +1,29 @@
-FUNADOS TODOS V15 — PRUEBAS LOCALES
+FUNADOS TODOS — REVISIÓN 2026-11-15
 
-APROBADO
-- TypeScript: tsc --noEmit y build terminado.
-- JavaScript: node --check en frontend, dashboard y functions.
-- JSON: Realtime Database, Hosting e índices, parseo válido.
-- Chromium qa/test_ui.py: 320, 390, 768 y 1440 px.
-- Chromium qa/test_v15.py: 320, 390, 768 y 1440 px; reportar con Otro, bloqueo de reportes repetidos, controles de tarjeta y estado pending.
-- Chromium qa/test_sensitive.py: 320, 390, 768 y 1440 px.
-- Chromium qa/test_extra.py: 390 y 1440 px, menú, Atrás/Escape, TikTok, preferencias, cierre de sesión.
-- Compilado de dashboard.html y web/assets/dashboard.js presentes.
-- Rutas de Hosting y estructura del proyecto comprobadas estáticamente.
+VERIFICADO EN ESTA REVISIÓN
+- npm ci, TypeScript (check) y compilación: correctos.
+- Sintaxis JavaScript del panel: correcta.
+- Chromium: flujo de publicación, reacciones, comentarios, edición, eliminación,
+  respuestas y actualizaciones en 320 y 1440 px.
+- Chromium: menú, Atrás/Escape, TikTok, preferencias y cierre de sesión
+  en 390 y 1440 px.
+- Chromium: reportes, motivos, duplicados y estado pending en 320/390/768/1440 px.
+- Chromium: contenido sensible, ocultación y desbordamiento en 320/390/768/1440 px.
+- JSON, estructura y preflight: correctos.
 
-NO COMPROBADO EN FIREBASE REAL / EMULADORES
-- Compilación semántica de reglas de Firestore/RTDB por Firebase CLI.
-- Inicio de sesión Google, email/password, permisos por cuenta, Cloud Functions, triggers y App Check.
-- Escritos de RTDB por lotes y sus límites en el proyecto Firebase.
-- Despliegue de Hosting y autorización del correo administrador.
+CORRECCIONES
+- El comentario enviado limpia el borrador; el fallo permite reintentar.
+- La actualización enviada limpia el borrador.
+- Enter permite párrafos; Ctrl/Cmd+Enter envía el formulario.
+- Los enlaces inexistentes terminan con un estado de publicación no disponible.
+- Las visitas no intentan leer registros reservados al administrador.
+- El panel maneja errores de acceso y acciones sin promesas rechazadas sin capturar.
+- Pasar una publicación a revisión también bloquea sus evidencias.
+- Selector de cierre de sesión en QA corregido para cuentas con TikTok.
 
-BLOQUEOS CONOCIDOS DE LANZAMIENTO
-- No se proporcionó databaseURL.
-- No hay functions/.env con RTDB_URL.
-- Firebase CLI no está instalado ni autenticado en este entorno; npm registry inaccesible.
-- Cloud Functions requiere configuraciones/plan habilitados en el proyecto.
-- Sin Firebase real NO SE PUEDE GARANTIZAR la ausencia total de errores.
+PENDIENTE DE AUTORIZACIÓN FIREBASE
+- Firebase CLI instalado; falta completar el inicio de sesión autorizado.
+- No se ha realizado un despliegue remoto en esta revisión.
+- Las pruebas de navegador usan el adaptador local y, para el reintento,
+  un fallo remoto simulado. No verifican permisos ni servicios Firebase reales.
+- No se modificaron ni se desplegaron reglas o índices de las bases de datos.

@@ -14,7 +14,7 @@ with sync_playwright() as p:
   page.set_content('<!doctype html><html><head><title>Funados Todos</title></head><body><div id="app"></div><div id="modal-root"></div><div id="toasts"></div></body></html>')
   page.add_script_tag(content="""for(const key of ['localStorage','sessionStorage']){const map={};Object.defineProperty(window,key,{configurable:true,value:{getItem:k=>Object.hasOwn(map,k)?map[k]:null,setItem:(k,v)=>map[k]=String(v),removeItem:k=>delete map[k]}})};if(!crypto.randomUUID)crypto.randomUUID=()=>Math.random().toString(36).slice(2).padEnd(10,'x');""")
   page.add_style_tag(content=(assets/'styles.css').read_text())
-  page.add_script_tag(content='window.FUNADOS_FIREBASE_CONFIG={};\n'+scripts)
+  page.add_script_tag(content='window.FUNADOS_FIREBASE_CONFIG={};\n'+scripts.replace('const firebaseEnabled', 'let firebaseEnabled'))
   assert page.locator('h1').first.inner_text()=='Inicio de sesión'
   page.get_by_role('button',name='Modo de invitado').click()
   page.locator('#guest-alias').fill('Invitado V10')
@@ -36,8 +36,12 @@ with sync_playwright() as p:
   assert page.locator('.inline-comments').count()==1
   assert page.locator('#modal-root .modal-overlay').count()==0
   page.locator('#reply-text').fill('Este comentario anónimo explica el problema observado.')
+  page.locator('#reply-text').press('Enter')
+  assert page.locator('.inline-comments .reply-item').count()==0
+  assert '\n' in page.locator('#reply-text').input_value()
   page.get_by_role('button',name='Publicar comentario').click()
   assert page.locator('.inline-comments .reply-item').count()==1
+  assert page.locator('#reply-text').input_value()==''
   assert page.locator('#modal-root .modal-overlay').count()==0
   first=page.locator('.inline-comments .reply-item').first
   first.locator('[data-action="react-comment"][data-kind="like"]').click()
@@ -63,6 +67,7 @@ with sync_playwright() as p:
   page.locator('#update-text').fill('Nueva actualización publicada después de revisar el problema inicial.')
   page.get_by_role('button',name='Publicar actualización').click()
   assert page.locator('.update-item').count()==1
+  assert page.locator('#update-text').input_value()==''
   page.get_by_role('button',name='Cerrar').first.click()
   # responsive + settings
   if width<=800:
@@ -74,6 +79,28 @@ with sync_playwright() as p:
   assert page.locator('h1').first.inner_text()=='Ajustes'
   assert page.locator('.signout-button').count()==1
   
+  # Un fallo remoto conserva el borrador y permite reintentar el comentario.
+  page.evaluate('''() => {
+    const post=state.reports[0];state.remoteReports=[post];state.remoteReplies=[];
+    firebaseEnabled=true;navigate('funa/'+post.id);toggleInlineThread(post.id);
+    let attempts=0;
+    addNestedReply=async (reportId,text,user)=>{
+      if(++attempts===1)throw new Error('Fallo de conexión simulado');
+      state.remoteReplies.push({id:'retry-comment',reportId,text,authorUid:user.uid,
+        authorAlias:'Anónimo',status:'approved',createdAt:Date.now()});
+    };
+  }''')
+  page.locator('#reply-text').fill('Comentario que debe poder reintentarse después de un fallo.')
+  page.get_by_role('button',name='Publicar comentario').click()
+  assert page.locator('#reply-text').input_value()!=''
+  assert page.locator('#reply-form').get_attribute('data-sending') is None
+  page.get_by_role('button',name='Publicar comentario').click()
+  assert page.locator('.reply-item').count()==1
+  assert page.locator('#reply-text').input_value()==''
+  # Un enlace inexistente finaliza con un estado claro.
+  page.evaluate("firebaseEnabled=false;navigate('funa/no-existe')")
+  assert page.get_by_role('heading',name='Publicación no disponible').is_visible()
+
   if not page.evaluate('document.documentElement.scrollWidth <= window.innerWidth+1'):
    print('OVERFLOW',width,page.evaluate("[...document.querySelectorAll('*')].filter(e=>e.getBoundingClientRect().right>innerWidth+2).slice(0,16).map(e=>({el:e.tagName,cl:e.className&&typeof e.className==='string'?e.className.slice(0,80):'',right:Math.round(e.getBoundingClientRect().right),w:Math.round(e.getBoundingClientRect().width)}))"))
   
