@@ -1,4 +1,4 @@
-"""Prueba local de B11: interacción de contenido sensible sin Firebase real."""
+"""Contenido sensible: solo multimedia; texto y participación siempre visibles."""
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 import sys
@@ -26,11 +26,18 @@ with sync_playwright() as p:
   page.get_by_role('button',name='Añadir funa').first.click()
   assert page.locator('#post-sensitive').count()==1
   assert not page.locator('#post-sensitive').is_checked(), 'Debe empezar desactivado'
+  assert page.locator('#post-sensitive').is_disabled(), 'Sin archivos debe estar deshabilitado'
   title='Funa sensible de prueba para B11'
   description='Esta publicación de prueba contiene una descripción que no debe aparecer en la vista mientras no se revele.'
   page.locator('#post-title').fill(title)
   page.locator('#post-description').fill(description)
   out=io.BytesIO();Image.new('RGB',(2,2),(45,85,145)).save(out,format='PNG');tiny=out.getvalue()
+  page.locator('#post-images').set_input_files({'name':'evidencia-prueba.png','mimeType':'image/png','buffer':tiny})
+  assert page.locator('#post-sensitive').is_enabled()
+  page.locator('#post-sensitive').check()
+  page.locator('#post-images').set_input_files([])
+  assert page.locator('#post-sensitive').is_disabled()
+  assert not page.locator('#post-sensitive').is_checked()
   page.locator('#post-images').set_input_files({'name':'evidencia-prueba.png','mimeType':'image/png','buffer':tiny})
   page.locator('label[for="post-sensitive"]').click()
   assert page.locator('#post-sensitive').is_checked()
@@ -39,10 +46,10 @@ with sync_playwright() as p:
   post=page.locator('.report-card').first
   assert post.locator('.sensitive-gate').count()==1
   assert post.get_by_role('button',name='Ver contenido').count()==1
-  assert post.locator('h2').first.inner_text()=='Contenido sensible'
-  assert title not in post.inner_text(), 'Filtración del título oculto'
-  assert description not in post.inner_text(), 'Filtración de descripción oculta'
-  assert post.locator('.reactions-bar').count()==0
+  assert post.locator('h2').first.inner_text()==title
+  assert title in post.inner_text(), 'El título debe seguir visible'
+  assert description in post.inner_text(), 'La descripción debe seguir visible'
+  assert post.locator('.reactions-bar').count()==1
   assert post.locator('.report-images').count()==0, 'Evidencia visible antes de revelar'
   post.get_by_role('button',name='Ver contenido').click()
   post=page.locator('.report-card').first
@@ -53,7 +60,26 @@ with sync_playwright() as p:
   post.get_by_role('button',name='Ocultar contenido').click()
   post=page.locator('.report-card').first
   assert post.locator('.sensitive-gate').count()==1
-  assert title not in post.inner_text()
+  assert title in post.inner_text()
+  assert description in post.inner_text()
+  post.locator('[data-action=thread]').click()
+  page.locator('#reply-text').fill('Comentario posible incluso antes de revelar las imágenes.')
+  page.get_by_role('button',name='Publicar comentario').click()
+  assert page.locator('#reply-text').input_value()==''
+  assert page.locator('.reply-item').count()==1
+  # Las fotos de seguimiento también respetan la cubierta, sin ocultar el texto.
+  post.get_by_role('button',name='Actualizaciones',exact=True).click()
+  update='Seguimiento de prueba cuyo texto siempre debe permanecer visible.'
+  page.locator('#update-text').fill(update)
+  page.locator('#update-images').set_input_files({'name':'foto-actualizada.png','mimeType':'image/png','buffer':tiny})
+  page.get_by_role('button',name='Publicar actualización').click()
+  assert update in page.locator('.update-message').inner_text()
+  assert page.locator('.update-message .sensitive-gate').count()==1
+  assert page.locator('.update-message .carousel-slide').count()==0
+  page.locator('.update-message').get_by_role('button',name='Ver contenido').click()
+  assert page.locator('.update-message .carousel-slide').count()==1
+  page.locator('#modal-root [data-action=close]').click()
+  page.locator('.report-card').first.get_by_role('button',name='Ocultar contenido').click()
   # Una funa normal debe seguir viéndose sin aviso.
   page.get_by_role('button',name='Añadir funa').first.click()
   assert not page.locator('#post-sensitive').is_checked()
@@ -63,9 +89,23 @@ with sync_playwright() as p:
   page.get_by_role('button',name='Publicar',exact=True).click()
   assert page.locator('.report-card').count()==2
   assert page.locator('.sensitive-gate').count()==1
-  assert page.locator('.report-card').filter(has_text=regular).count()==1
+  regular_post=page.locator('.report-card').filter(has_text=regular)
+  assert regular_post.count()==1
+  # Registros antiguos marcados sensibles sin archivos se muestran normalmente.
+  page.evaluate("state.reports[0].sensitiveContent=true;render()")
+  assert regular_post.locator('.sensitive-gate').count()==0
+  # El mismo control se habilita con vídeo y se restablece al cerrar.
+  page.get_by_role('button',name='Añadir funa').first.click()
+  page.locator('#post-images').set_input_files({'name':'video.webm','mimeType':'video/webm','buffer':b'fixture'})
+  assert page.locator('#post-sensitive').is_enabled()
+  page.locator('#post-sensitive').check()
+  page.locator('#modal-root [data-action=close]').click()
+  page.get_by_role('button',name='Añadir funa').first.click()
+  assert page.locator('#post-sensitive').is_disabled()
+  assert not page.locator('#post-sensitive').is_checked()
+  page.locator('#modal-root [data-action=close]').click()
   assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth+1'),f'Desbordamiento horizontal a {width}px'
   assert not errors,errors
-  print('PASS B11',width,'px: optional toggle, conceal/reveal/hide, legacy feed, no overflow')
+  print('PASS B11',width,'px: texto visible, solo multimedia oculta, comentarios, imágenes/vídeo, sin archivos y registros antiguos')
   page.close()
  browser.close()

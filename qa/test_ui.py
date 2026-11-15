@@ -98,6 +98,27 @@ with sync_playwright() as p:
   page.get_by_role('button',name='Publicar comentario').click()
   assert page.locator('.reply-item').count()==1
   assert page.locator('#reply-text').input_value()==''
+  # Firestore puede reemplazar el formulario antes de resolver la escritura.
+  page.evaluate("""() => {
+    window.__qaReplyAttempts=0;
+    addNestedReply=async (reportId,text,user,parent)=>{
+      window.__qaReplyAttempts++;
+      state.remoteReplies.push({id:'racing-comment',reportId,text,authorUid:user.uid,
+        authorAlias:'Anónimo',status:'approved',createdAt:Date.now(),...(parent?{parentId:parent}:{})});
+      renderInlineThread();
+      await new Promise(resolve=>window.__qaReplyResolve=resolve);
+    };
+  }""")
+  assert page.locator('label[for=reply-text]').inner_text()=='Comentar'
+  page.locator('[data-action=reply-to]').first.click()
+  page.locator('#reply-text').fill('Respuesta con formulario reemplazado por actualización remota.')
+  page.get_by_role('button',name='Publicar respuesta').click()
+  assert page.locator('#reply-text').is_disabled()
+  page.locator('#reply-form').evaluate('(form)=>form.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}))')
+  assert page.evaluate('window.__qaReplyAttempts')==1
+  page.evaluate('window.__qaReplyResolve()')
+  page.wait_for_function('document.querySelector("#reply-text").value==="" && !document.querySelector("#reply-text").disabled')
+  assert page.locator('.reply-item').count()==2
   # Un enlace inexistente finaliza con un estado claro.
   page.evaluate("firebaseEnabled=false;navigate('funa/no-existe')")
   assert page.get_by_role('heading',name='Publicación no disponible').is_visible()

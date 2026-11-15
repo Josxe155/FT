@@ -37,7 +37,7 @@ Funados Todos reúne reportes de la comunidad de **El Oro, Ecuador**, con eviden
 - **Google:** acceso mediante una cuenta de Google.
 - **Invitado:** sesión anónima de Firebase y apodo local. No es una cuenta recuperable mediante contraseña.
 - Los autores se muestran como **Anónimo**, salvo que vinculen TikTok. Firebase conserva el UID del autor; no se promete anonimato frente al operador del servicio.
-- **Contenido sensible:** oculta título, descripción y evidencias hasta pulsar «Ver contenido». «Ocultar contenido» vuelve a cubrirlos. Es un control visual, no una barrera de permisos.
+- **Contenido sensible:** oculta solo imágenes y vídeos hasta pulsar «Ver contenido»; título, descripción, comentarios y reacciones siguen visibles. Solo se activa al adjuntar archivos. «Ocultar contenido» vuelve a cubrir los archivos. Es un control visual, no una barrera de permisos.
 - El panel [`/dashboard.html`](https://funados-todos.web.app/dashboard.html) requiere la cuenta administradora verificada y permisos comprobados por Firebase.
 
 ## 🧩 Tecnología

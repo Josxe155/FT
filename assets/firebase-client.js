@@ -339,7 +339,9 @@ export function listenReplies(reportId, uid, onData, onError = () => { }) {
     // Una sola escucha: evita que un comentario llegue por dos consultas simultáneas.
     // Los comentarios se publican en status approved, y la consulta coincide con las reglas.
     const q = f.query(f.collection(db, `reports/${reportId}/replies`), f.where('status', '==', 'approved'), f.limit(200));
-    return f.onSnapshot(q, (snap) => onData(snap.docs.map((d) => ({ id: d.id, reportId, ...d.data(),
+    // No abrir escuchas de reacciones para un comentario nuevo aún no confirmado.
+    // Los cambios de metadatos aseguran recibir la confirmación del servidor.
+    return f.onSnapshot(q, { includeMetadataChanges: true }, (snap) => onData(snap.docs.filter((d) => !d.metadata?.hasPendingWrites || d.data().createdAt != null).map((d) => ({ id: d.id, reportId, ...d.data(),
         createdAt: d.data().createdAt?.toMillis?.() || Date.now(), editedAt: d.data().editedAt?.toMillis?.() || null })).sort((a, b) => a.createdAt - b.createdAt)), onError);
 }
 export async function addReply(reportId, text, user) {

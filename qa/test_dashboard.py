@@ -102,7 +102,9 @@ class Backend:
  def local(self,route):
   req=route.request;url=urlparse(req.url);path=unquote(parse_qs(url.query).get('path',[''])[0])
   if url.path.endswith('/data'):return self.reply(route,{'docs':self.docs})
-  if url.path.endswith('/realtime'):return self.reply(route,0 if path=='.info/serverTimeOffset' else self.getrt(path))
+  if url.path.endswith('/realtime'):
+   if req.method=='POST':self.setrt(path,json.loads(req.post_data))
+   return self.reply(route,0 if path=='.info/serverTimeOffset' else self.getrt(path))
   if url.path.endswith('/document'):return self.reply(route,self.docs.get(path))
   if url.path.endswith('/update'):
    values=json.loads(req.post_data);self.docs[path]['fields'].update({k:encode(v) for k,v in values.items()});return self.reply(route,{})
@@ -125,7 +127,7 @@ export const getCountFromServer=async q=>({data:()=>({count:awaited})});
 let awaited=0;export async function getDoc(r){const d=await (await fetch('/__qa/document?path='+encodeURIComponent(r.path))).json();return d?snap(d):{exists:()=>false}}
 export const serverTimestamp=()=>new Date().toISOString();export async function updateDoc(r,v){await fetch('/__qa/update?path='+encodeURIComponent(r.path),{method:'POST',body:JSON.stringify(v)})}export async function deleteDoc(r){await fetch('/__qa/delete?path='+encodeURIComponent(r.path),{method:'DELETE'})}
 """.replace("export const getCountFromServer=async q=>({data:()=>({count:awaited})});","export const getCountFromServer=async q=>{const list=await items(q);return {data:()=>({count:list.length})}};")
-RTDB="""export const getDatabase=()=>({});export const ref=(_,path)=>({path});export async function get(r){const v=await (await fetch('/__qa/realtime?path='+encodeURIComponent(r.path))).json();return {val:()=>v,exists:()=>v!==null}}export async function set(){}"""
+RTDB="""export const getDatabase=()=>({});export const ref=(_,path)=>({path});export async function get(r){const v=await (await fetch('/__qa/realtime?path='+encodeURIComponent(r.path))).json();return {val:()=>v,exists:()=>v!==null}}export async function set(r,v){await fetch('/__qa/realtime?path='+encodeURIComponent(r.path),{method:'POST',body:JSON.stringify(v)})}"""
 artifacts=Path(os.environ.get('QA_ARTIFACT_DIR','/tmp/funados-qa'));artifacts.mkdir(parents=True,exist_ok=True)
 with sync_playwright() as p:
  browser=p.chromium.launch(headless=True,executable_path='/usr/bin/chromium',args=['--no-sandbox'])
@@ -144,6 +146,16 @@ with sync_playwright() as p:
   page.locator('#filter').fill('fresh-0');page.locator('tbody tr').get_by_role('button',name='Ver',exact=True).click()
   page.locator('.dash-evidence-list [data-a=evidence]').click();expect(page.locator('.dash-evidence-viewer')).to_be_visible();page.wait_for_function('document.querySelector(".dash-evidence-viewer>img").naturalWidth>0')
   page.locator('[data-close-evidence]').click();expect(page.locator('.dash-evidence-viewer')).to_have_count(0)
+  # Moderación: cancelar conserva el estado; revisar/retirar bloquea archivos,
+  # volver a publicar los desbloquea. Solo registros ficticios.
+  page.once('dialog',lambda d:d.dismiss());page.locator('tbody tr').get_by_role('button',name='Retirar',exact=True).click()
+  assert backend.docs['reports/fresh-0']['fields']['status']['stringValue']=='approved'
+  for button,status,blocked in [('Revisar','pending',True),('Retirar','rejected',True),('Publicar','approved',False)]:
+   page.once('dialog',lambda d:d.accept());page.locator('tbody tr').get_by_role('button',name=button,exact=True).click()
+   expect(page.locator('tbody tr').locator('td').nth(3)).to_have_text({'pending':'En revisión','rejected':'Retirada','approved':'Publicada'}[status])
+   assert backend.docs['reports/fresh-0']['fields']['status']['stringValue']==status
+   assert backend.getrt('blockedEvidence/fresh-0')==blocked
+   page.locator('#filter').fill('fresh-0')
   page.get_by_role('button',name='Limpieza manual',exact=True).click();expect(page.get_by_role('button',name='Autorizar revisión con Google')).to_be_visible()
   page.get_by_role('button',name='Autorizar revisión con Google').click();expect(page.get_by_role('heading',name='Recupera espacio con control')).to_be_visible()
   expect(page.locator('[data-maint-post]')).to_have_count(2);expect(page.locator('[data-maint-user]')).to_have_count(2)

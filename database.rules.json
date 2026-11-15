@@ -22,7 +22,7 @@
       ".read": "auth != null && auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'",
       "$uid": {
         ".write": "auth != null && auth.uid === $uid && !data.exists()",
-        ".validate": "newData.hasChildren(['firstSeen']) && newData.child('firstSeen').isNumber()",
+        ".validate": "newData.hasChildren(['firstSeen']) && newData.child('firstSeen').isNumber() && newData.child('firstSeen').val() === now",
         "firstSeen": {
           ".validate": true
         },

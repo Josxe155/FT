@@ -388,18 +388,17 @@ function cantonCard(c) { return `<button type="button" class="canton-card" data-
 function homeView() { return `<main class="main-area home-area"><div class="section-head"><div><span class="section-line"></span><h1>Cantones</h1></div><div class="search-box">${icons.search}<input id="search" type="search" placeholder="Buscar cantón" value="${esc(state.search)}" aria-label="Buscar cantón"></div></div><section class="cantons-grid" id="cantons-grid" aria-label="Todos los cantones">${rankedCantons().map(cantonCard).join('')}</section></main>`; }
 function emptyView() { return `<div class="empty-state"><span class="empty-line"></span><h2>Aún no hay funas en este cantón</h2><button class="button-primary" type="button" data-action="compose">${icons.plus} Añadir funa</button></div>`; }
 function sensitiveGate(id) {
-    return `<section class="sensitive-gate" aria-label="Aviso de contenido sensible"><div class="sensitive-blur" aria-hidden="true"></div><div class="sensitive-gate-body"><span class="sensitive-eye" aria-hidden="true">${icons.eyeOff}</span><h2>Contenido sensible</h2><p>Esta funa puede incluir imágenes, vídeos o información que algunas personas prefieran no ver.</p><button class="sensitive-reveal" type="button" data-action="reveal-sensitive" data-id="${esc(id)}">Ver contenido</button></div></section>`;
+    return `<section class="sensitive-gate" aria-label="Aviso de contenido sensible"><div class="sensitive-blur" aria-hidden="true"></div><div class="sensitive-gate-body"><span class="sensitive-eye" aria-hidden="true">${icons.eyeOff}</span><h2>Contenido sensible</h2><p>Esta funa puede incluir imágenes o vídeos que algunas personas prefieran no ver.</p><button class="sensitive-reveal" type="button" data-action="reveal-sensitive" data-id="${esc(id)}">Ver contenido</button></div></section>`;
 }
 function reportCard(r) {
     if (r.status === 'deleting')
         return '<article class="report-card"><h2>Publicación caducada</h2><p>Se está eliminando junto con sus evidencias.</p></article>';
     if (r.status === 'pending')
         return `<article class="report-card report-under-review"><div class="report-top"><span class="report-author">${icons.flag} Funa en revisión</span><time>${formatDate(r.createdAt)}</time></div><div class="review-notice"><h2>Publicación reportada muchas veces</h2><p>Esta funa recibió numerosos reportes y está oculta mientras se revisa. No se muestran sus evidencias ni información.</p></div></article>`;
-    if (r.sensitiveContent === true && !revealedSensitivePosts.has(r.id)) {
-        return `<article class="report-card"><div class="report-top">${tiktokAuthor(r)}<time>${formatDate(r.createdAt)}</time></div>${sensitiveGate(r.id)}<div class="sensitive-actions"><button type="button" class="text-action" data-action="share" data-id="${esc(r.id)}">${icons.share} Compartir</button><button type="button" class="text-action subtle-action" data-action="flag" data-id="${esc(r.id)}">${icons.flag} Reportar</button></div></article>`;
-    }
-    const badge = r.sensitiveContent === true ? `<div class="sensitive-showing"><span>${icons.eyeOff} Contenido sensible</span><button type="button" data-action="hide-sensitive" data-id="${esc(r.id)}">Ocultar contenido</button></div>` : '';
-    return `<article class="report-card"><div class="report-top">${tiktokAuthor(r)}<time>${formatDate(r.createdAt)}</time></div>${badge}<h2>${esc(r.title)}</h2><p class="report-copy">${esc(r.description)}</p>${evidenceMarkup(r)}<div class="reactions-bar" data-id="${esc(r.id)}" aria-label="Reacciones a la publicación">${reactionKinds.map(([kind, emoji, label]) => `<button class="react-button ${currentMyReaction(r.id) === kind ? 'react-selected' : ''}" type="button" data-action="react" data-id="${esc(r.id)}" data-kind="${kind}" aria-label="${label}" aria-pressed="${currentMyReaction(r.id) === kind}"><span class="react-emoji" aria-hidden="true">${emoji}</span><span class="react-label">${label}</span><span class="react-number">${currentReactionCounts(r.id)[kind]}</span></button>`).join('')}</div><div class="report-bottom"><button class="text-action" type="button" data-action="updates" data-id="${esc(r.id)}">${icons.clock} Actualizaciones</button><button class="text-action" type="button" data-action="thread" data-id="${esc(r.id)}" aria-expanded="${state.thread === r.id}" aria-controls="comments-${esc(r.id)}">${icons.reply} Comentarios${firebaseEnabled ? '' : ` · ${countR(r.id)}`}</button><button class="text-action" type="button" data-action="share" data-id="${esc(r.id)}">${icons.share} Compartir</button><button class="text-action subtle-action" type="button" data-action="flag" data-id="${esc(r.id)}" aria-label="Reportar esta publicación">${icons.flag} Reportar</button></div>${state.thread === r.id ? threadInline(r.id) : ''}</article>`;
+    const sensitive = r.sensitiveContent === true && galleryItems(r).length > 0;
+    const concealed = sensitive && !revealedSensitivePosts.has(r.id);
+    const badge = sensitive && !concealed ? `<div class="sensitive-showing"><span>${icons.eyeOff} Contenido sensible</span><button type="button" data-action="hide-sensitive" data-id="${esc(r.id)}">Ocultar contenido</button></div>` : '';
+    return `<article class="report-card"><div class="report-top">${tiktokAuthor(r)}<time>${formatDate(r.createdAt)}</time></div>${badge}<h2>${esc(r.title)}</h2><p class="report-copy">${esc(r.description)}</p>${concealed ? sensitiveGate(r.id) : evidenceMarkup(r)}<div class="reactions-bar" data-id="${esc(r.id)}" aria-label="Reacciones a la publicación">${reactionKinds.map(([kind, emoji, label]) => `<button class="react-button ${currentMyReaction(r.id) === kind ? 'react-selected' : ''}" type="button" data-action="react" data-id="${esc(r.id)}" data-kind="${kind}" aria-label="${label}" aria-pressed="${currentMyReaction(r.id) === kind}"><span class="react-emoji" aria-hidden="true">${emoji}</span><span class="react-label">${label}</span><span class="react-number">${currentReactionCounts(r.id)[kind]}</span></button>`).join('')}</div><div class="report-bottom"><button class="text-action" type="button" data-action="updates" data-id="${esc(r.id)}">${icons.clock} Actualizaciones</button><button class="text-action" type="button" data-action="thread" data-id="${esc(r.id)}" aria-expanded="${state.thread === r.id}" aria-controls="comments-${esc(r.id)}">${icons.reply} Comentarios${firebaseEnabled ? '' : ` · ${countR(r.id)}`}</button><button class="text-action" type="button" data-action="share" data-id="${esc(r.id)}">${icons.share} Compartir</button><button class="text-action subtle-action" type="button" data-action="flag" data-id="${esc(r.id)}" aria-label="Reportar esta publicación">${icons.flag} Reportar</button></div>${state.thread === r.id ? threadInline(r.id) : ''}</article>`;
 }
 function cantonView(slug) { const c = cantonMap[slug]; if (!c)
     return homeView(); state.canton = slug; const posts = allReports().filter(r => r.canton === slug && ['approved', 'pending'].includes(r.status)).sort((a, b) => state.sort === 'antiguas' ? a.createdAt - b.createdAt : b.createdAt - a.createdAt); return `<main class="main-area detail-area"><button type="button" class="back-link" data-action="nav" data-page="inicio">${icons.back} Todos los cantones</button><div class="canton-banner">${photo(c)}<div class="banner-overlay"></div><div class="banner-content"><span>CANTÓN</span><h1>${esc(c.name)}</h1><div class="banner-meta">${count(slug)} ${count(slug) === 1 ? 'funa publicada' : 'funas publicadas'}</div></div></div><div class="feed-toolbar"><h2>Funas</h2><div class="feed-actions"><label class="sort-control">Ordenar <select id="sort-posts" aria-label="Orden de las funas"><option value="recientes" ${state.sort === 'recientes' ? 'selected' : ''}>Recientes</option><option value="antiguas" ${state.sort === 'antiguas' ? 'selected' : ''}>Antiguas</option></select></label><button class="button-primary" type="button" data-action="compose">${icons.plus} Añadir funa</button></div></div><section class="feed" aria-label="Funas del cantón">${posts.length ? posts.map(reportCard).join('') : emptyView()}</section>${firebaseEnabled && hasMoreReports() ? '<div class="load-more-row"><button type="button" class="button-primary" data-action="load-more">Cargar más funas ${icons.arrow}</button></div>' : ''}</main>`; }
@@ -450,13 +449,14 @@ function commentTree(comments) {
     const roots = grouped.get('') || [];
     return roots.map(r => walk(r, 0)).join('') + comments.filter(r => !seen.has(r.id)).map(r => walk(r, 0)).join('');
 }
+const sendingReplies = new Set();
 function threadInline(reportId) {
     const r = allReports().find(p => p.id === reportId);
     if (!r)
         return '';
     const comments = allReplies().filter(x => x.reportId === reportId && x.status === 'approved').sort((a, b) => a.createdAt - b.createdAt);
     const target = comments.find(x => x.id === state.replyTarget);
-    return `<section class="inline-comments" id="comments-${esc(reportId)}" aria-label="Comentarios de la funa" tabindex="-1"><div class="inline-comment-title"><h3>Comentarios</h3><button type="button" data-action="thread" data-id="${esc(reportId)}" class="comment-link">Cerrar ${icons.close}</button></div><div class="reply-list">${comments.length ? commentTree(comments) : '<p class="no-replies">Todavía no hay comentarios.</p>'}</div><form id="reply-form" class="reply-form">${target ? `<div class="replying-to"><span>Respondiendo a un comentario anónimo</span><button type="button" class="comment-link" data-action="cancel-reply">Cancelar</button></div>` : ''}<label for="reply-text">${target ? 'Responder de forma anónima' : 'Comentar de forma anónima'}</label><textarea id="reply-text" name="reply" rows="3" minlength="8" maxlength="700" required placeholder="${target ? 'Escribe tu respuesta...' : 'Escribe tu comentario...'}"></textarea><button class="button-primary" type="submit">${target ? 'Publicar respuesta' : 'Publicar comentario'} ${icons.arrow}</button></form></section>`;
+    return `<section class="inline-comments" id="comments-${esc(reportId)}" aria-label="Comentarios de la funa" tabindex="-1"><div class="inline-comment-title"><h3>Comentarios</h3><button type="button" data-action="thread" data-id="${esc(reportId)}" class="comment-link">Cerrar ${icons.close}</button></div><div class="reply-list">${comments.length ? commentTree(comments) : '<p class="no-replies">Todavía no hay comentarios.</p>'}</div><form id="reply-form" class="reply-form" ${sendingReplies.has(reportId) ? 'data-sending="1"' : ''}>${target ? `<div class="replying-to"><span>Respondiendo a un comentario anónimo</span><button type="button" class="comment-link" data-action="cancel-reply">Cancelar</button></div>` : ''}<label for="reply-text">${target ? 'Responder de forma anónima' : 'Comentar'}</label><textarea ${sendingReplies.has(reportId) ? 'disabled' : ''} id="reply-text" name="reply" rows="3" minlength="8" maxlength="700" required placeholder="${target ? 'Escribe tu respuesta...' : 'Escribe tu comentario...'}"></textarea><button class="button-primary" type="submit" ${sendingReplies.has(reportId) ? 'disabled' : ''}>${target ? 'Publicar respuesta' : 'Publicar comentario'} ${icons.arrow}</button></form></section>`;
 }
 function renderInlineThread() {
     if (!state.thread)
@@ -512,9 +512,18 @@ function updatesDialog() {
     if (!r)
         return '';
     const mine = state.user?.uid === r.authorUid, items = allUpdatesFor(r.id);
-    return `<div class="modal-overlay" data-action="close-overlay"><section class="modal-panel thread-panel updates-panel" role="dialog" aria-modal="true" aria-label="Actualizaciones de la funa"><div class="modal-header"><div><span class="updates-kicker">SEGUIMIENTO</span><h2>Actualizaciones</h2></div><button class="icon-control" type="button" aria-label="Cerrar" data-action="close">${icons.close}</button></div><div class="update-context"><strong>${esc(r.title)}</strong><p>Nueva información del autor, sin perder el contexto de la publicación.</p></div><div class="thread-content update-timeline">${items.length ? items.map(u => `<article class="update-item update-message"><span class="update-avatar">${icons.user}</span><div class="update-message-body"><div class="update-message-heading"><strong>Autor anónimo</strong><span class="update-badge">AUTOR</span><time>${formatDateTime(u.createdAt)}</time></div><p>${esc(u.text)}</p>${evidenceMarkup(r, u.id)}</div></article>`).join('') : '<p class="no-replies">Todavía no hay actualizaciones. Las novedades aparecerán aquí.</p>'}</div>${mine ? `<form id="update-form" class="reply-form update-composer"><label for="update-text">Añadir actualización</label><textarea id="update-text" name="update" rows="3" minlength="10" maxlength="1000" required placeholder="Comparte nueva información…"></textarea><div class="update-composer-bottom"><label class="update-attach" for="update-images">${icons.image} Adjuntar fotos<input id="update-images" type="file" accept="image/png,image/jpeg,image/webp" multiple class="visually-hidden"></label><small>Hasta 4 fotos · 5 MB cada una</small><button class="button-primary" type="submit">Publicar actualización ${icons.arrow}</button></div><p id="selected-update-images" class="selected-images">${esc(updateFiles.map(f => f.name).join(' · '))}</p></form>` : ''}</section></div>`;
+    return `<div class="modal-overlay" data-action="close-overlay"><section class="modal-panel thread-panel updates-panel" role="dialog" aria-modal="true" aria-label="Actualizaciones de la funa"><div class="modal-header"><div><span class="updates-kicker">SEGUIMIENTO</span><h2>Actualizaciones</h2></div><button class="icon-control" type="button" aria-label="Cerrar" data-action="close">${icons.close}</button></div><div class="update-context"><strong>${esc(r.title)}</strong><p>Nueva información del autor, sin perder el contexto de la publicación.</p></div><div class="thread-content update-timeline">${items.length ? items.map(u => `<article class="update-item update-message"><span class="update-avatar">${icons.user}</span><div class="update-message-body"><div class="update-message-heading"><strong>Autor anónimo</strong><span class="update-badge">AUTOR</span><time>${formatDateTime(u.createdAt)}</time></div><p>${esc(u.text)}</p>${r.sensitiveContent === true && galleryItems(r, u.id).length && !revealedSensitivePosts.has(r.id) ? sensitiveGate(r.id) : evidenceMarkup(r, u.id)}</div></article>`).join('') : '<p class="no-replies">Todavía no hay actualizaciones. Las novedades aparecerán aquí.</p>'}</div>${mine ? `<form id="update-form" class="reply-form update-composer"><label for="update-text">Añadir actualización</label><textarea id="update-text" name="update" rows="3" minlength="10" maxlength="1000" required placeholder="Comparte nueva información…"></textarea><div class="update-composer-bottom"><label class="update-attach" for="update-images">${icons.image} Adjuntar fotos<input id="update-images" type="file" accept="image/png,image/jpeg,image/webp" multiple class="visually-hidden"></label><small>Hasta 4 fotos · 5 MB cada una</small><button class="button-primary" type="submit">Publicar actualización ${icons.arrow}</button></div><p id="selected-update-images" class="selected-images">${esc(updateFiles.map(f => f.name).join(' · '))}</p></form>` : ''}</section></div>`;
 }
-function composerDialog() { return `<div class="modal-overlay" data-action="close-overlay"><section class="modal-panel" role="dialog" aria-modal="true" aria-label="Añadir una funa"><div class="modal-header"><h2>Añadir funa</h2><button class="icon-control" type="button" aria-label="Cerrar" data-action="close">${icons.close}</button></div><form id="compose-form" class="form-stack"><div class="field"><label for="post-title">Título</label><input id="post-title" name="title" type="text" maxlength="110" minlength="10" placeholder="Título de la funa" autocomplete="off" required></div><div class="field"><label for="post-description">Descripción</label><textarea id="post-description" name="description" rows="5" minlength="25" maxlength="1800" placeholder="Escribe la descripción de la funa..." required></textarea></div><div class="field"><label for="post-images">Evidencias <span class="muted">(opcional, hasta 10 imágenes o vídeos)</span></label><label class="upload-area" for="post-images">${icons.image}<span>Seleccionar evidencias</span><small>JPG, PNG, WebP, MP4, WebM o MOV · vídeos hasta 10 MB · imágenes hasta 5 MB</small></label><input class="visually-hidden" id="post-images" name="images" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" multiple><div id="selected-images" class="selected-images"></div></div><label class="sensitive-compose" for="post-sensitive"><span class="sensitive-compose-icon">${icons.eyeOff}</span><span class="sensitive-compose-copy"><strong>Contenido sensible</strong><small>Ocultar título, descripción y evidencias hasta pulsar «Ver contenido». Opcional y desactivado por defecto.</small></span><input type="checkbox" name="sensitiveContent" id="post-sensitive" value="true"><span class="sensitive-compose-switch" aria-hidden="true"></span></label><button class="button-primary fullwidth" type="submit">Publicar</button></form></section></div>`; }
+function syncSensitiveControl() {
+    const toggle = modal.querySelector('#post-sensitive');
+    if (!toggle)
+        return;
+    toggle.disabled = state.imageFiles.length === 0;
+    if (toggle.disabled)
+        toggle.checked = false;
+    toggle.closest('label')?.classList.toggle('sensitive-unavailable', toggle.disabled);
+}
+function composerDialog() { return `<div class="modal-overlay" data-action="close-overlay"><section class="modal-panel" role="dialog" aria-modal="true" aria-label="Añadir una funa"><div class="modal-header"><h2>Añadir funa</h2><button class="icon-control" type="button" aria-label="Cerrar" data-action="close">${icons.close}</button></div><form id="compose-form" class="form-stack"><div class="field"><label for="post-title">Título</label><input id="post-title" name="title" type="text" maxlength="110" minlength="10" placeholder="Título de la funa" autocomplete="off" required></div><div class="field"><label for="post-description">Descripción</label><textarea id="post-description" name="description" rows="5" minlength="25" maxlength="1800" placeholder="Escribe la descripción de la funa..." required></textarea></div><div class="field"><label for="post-images">Evidencias <span class="muted">(opcional, hasta 10 imágenes o vídeos)</span></label><label class="upload-area" for="post-images">${icons.image}<span>Seleccionar evidencias</span><small>JPG, PNG, WebP, MP4, WebM o MOV · vídeos hasta 10 MB · imágenes hasta 5 MB</small></label><input class="visually-hidden" id="post-images" name="images" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" multiple><div id="selected-images" class="selected-images"></div></div><label class="sensitive-compose" for="post-sensitive"><span class="sensitive-compose-icon">${icons.eyeOff}</span><span class="sensitive-compose-copy"><strong>Contenido sensible</strong><small>Ocultar solo las imágenes y vídeos hasta pulsar «Ver contenido». Disponible al adjuntar archivos.</small></span><input type="checkbox" name="sensitiveContent" id="post-sensitive" value="true" disabled><span class="sensitive-compose-switch" aria-hidden="true"></span></label><button class="button-primary fullwidth" type="submit">Publicar</button></form></section></div>`; }
 function guestDialog() { return `<div class="modal-overlay" data-action="close-overlay"><section class="modal-panel compact" role="dialog" aria-modal="true" aria-label="Apodo de invitado"><div class="modal-header"><h2>Modo de invitado</h2><button type="button" class="icon-control" data-action="close" aria-label="Cerrar">${icons.close}</button></div><form id="guest-form" class="form-stack"><div class="field"><label for="guest-alias">Elige un apodo</label><input id="guest-alias" name="alias" minlength="2" maxlength="24" placeholder="Tu apodo" autocomplete="nickname" value="${esc(read(KEY.alias, ''))}" required></div><button type="submit" class="button-primary fullwidth">Continuar</button></form></section></div>`; }
 function imageDialog() {
     const movie = state.previewMediaType.startsWith('video/'), item = previewItems[previewIndex];
@@ -548,6 +557,7 @@ function renderModal() {
         refill('update-text', updateDraft);
     if (currentEdit === state.editReplyId && editDraft !== undefined)
         refill('edit-reply-text', editDraft);
+    syncSensitiveControl();
     hydrateEvidence();
 }
 function render() { lastRenderedHash = location.hash; if (!state.user) {
@@ -729,7 +739,7 @@ async function createFuna(form) {
         toast('No incluyas teléfonos ni correos personales.', 'bad');
         return;
     }
-    const sensitiveContent = d.get('sensitiveContent') === 'true';
+    const sensitiveContent = state.imageFiles.length > 0 && d.get('sensitiveContent') === 'true';
     const entry = { sensitiveContent, id: crypto.randomUUID(), canton, title, description, category: 'Funa', status: 'approved', authorUid: state.user.uid, authorAlias: 'Anónimo', createdAt: Date.now(), images: [] };
     const btn = form.querySelector('button[type=submit]');
     form.dataset.sending = '1';
@@ -772,14 +782,16 @@ async function createFuna(form) {
         toast(message, 'bad');
         form.querySelectorAll('input,textarea,button').forEach(control => control.disabled = false);
         btn.textContent = 'Publicar';
+        syncSensitiveControl();
     }
     finally {
         delete form.dataset.sending;
     }
 }
 async function sendReply(form) {
-    if (!state.user || !state.thread || form.dataset.sending === '1')
+    if (!state.user || !state.thread || form.dataset.sending === '1' || sendingReplies.has(state.thread))
         return;
+    const reportId = state.thread, user = state.user;
     const value = String(new FormData(form).get('reply') || '').trim();
     if (value.length < 8 || value.length > 700) {
         toast('El comentario debe tener entre 8 y 700 caracteres.', 'bad');
@@ -790,29 +802,42 @@ async function sendReply(form) {
         return;
     }
     const parent = state.replyTarget;
+    sendingReplies.add(reportId);
+    const input = form.querySelector('#reply-text');
+    if (input)
+        input.disabled = true;
     form.dataset.sending = '1';
     const submit = form.querySelector('button[type=submit]');
     if (submit)
         submit.disabled = true;
     try {
         if (firebaseEnabled)
-            await addNestedReply(state.thread, value, state.user, parent);
+            await addNestedReply(reportId, value, user, parent);
         else {
-            state.replies.push({ id: crypto.randomUUID(), reportId: state.thread, text: value, authorUid: state.user.uid, authorAlias: 'Anónimo', status: 'approved', createdAt: Date.now(), ...(parent ? { parentId: parent } : {}) });
+            state.replies.push({ id: crypto.randomUUID(), reportId, text: value, authorUid: user.uid, authorAlias: 'Anónimo', status: 'approved', createdAt: Date.now(), ...(parent ? { parentId: parent } : {}) });
             save(KEY.replies, state.replies);
         }
-        form.reset();
-        state.replyTarget = null;
-        renderInlineThread();
+        if (state.user?.uid === user.uid && state.thread === reportId) {
+            const current = app.querySelector('#reply-text');
+            if (current?.value.trim() === value)
+                current.value = '';
+            if (state.replyTarget === parent)
+                state.replyTarget = null;
+        }
         toast(parent ? 'Respuesta publicada.' : 'Comentario publicado.');
     }
     catch (e) {
         toast(e?.message || 'No se pudo publicar el comentario.', 'bad');
     }
     finally {
+        sendingReplies.delete(reportId);
         delete form.dataset.sending;
         if (submit)
             submit.disabled = false;
+        if (input)
+            input.disabled = false;
+        if (state.user?.uid === user.uid && state.thread === reportId)
+            renderInlineThread();
     }
 }
 async function updateOwnComment(form) {
@@ -1001,6 +1026,8 @@ document.addEventListener('click', async (e) => {
         return;
     }
     if (a === 'reveal-sensitive') {
+        if (modal.querySelector('form[data-sending="1"]'))
+            return;
         const id = el.dataset.id || '';
         const post = allReports().find(r => r.id === id && ['approved', 'pending'].includes(r.status));
         if (!post || post.sensitiveContent !== true)
@@ -1010,14 +1037,10 @@ document.addEventListener('click', async (e) => {
         return;
     }
     if (a === 'hide-sensitive') {
+        if (modal.querySelector('form[data-sending="1"]'))
+            return;
         const id = el.dataset.id || '';
         revealedSensitivePosts.delete(id);
-        if (state.thread === id) {
-            stopReplies();
-            stopCommentReactionWatch();
-            state.thread = null;
-            state.remoteReplies = [];
-        }
         render();
         return;
     }
@@ -1249,6 +1272,7 @@ document.addEventListener('change', e => {
     const preview = document.getElementById('selected-images');
     if (preview)
         preview.textContent = state.imageFiles.length ? state.imageFiles.map(f => f.name).join(' · ') : '';
+    syncSensitiveControl();
 });
 document.addEventListener('input', e => { const el = e.target; if (el.id !== 'search')
     return; state.search = el.value; const grid = document.getElementById('cantons-grid'); if (grid) {

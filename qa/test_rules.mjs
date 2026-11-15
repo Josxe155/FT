@@ -8,6 +8,13 @@ const report={id:'test-report',canton:'machala',title:'Reporte de prueba seguro'
 try{
  await assertSucceeds(setDoc(doc(a.firestore(),'reports/test-report'),report));
  await assertSucceeds(setDoc(doc(a.firestore(),'reports/with-media'),{...report,id:'with-media',media:[{id:'0',ownerUid:'alice',name:'x.png',type:'image/png',size:3,chunks:1}]}));
+ await assertFails(setDoc(doc(a.firestore(),'reports/text-sensitive'),{...report,id:'text-sensitive',sensitiveContent:true}));
+ await assertSucceeds(setDoc(doc(a.firestore(),'reports/photo-sensitive'),{...report,id:'photo-sensitive',sensitiveContent:true,media:[{id:'0',ownerUid:'alice',name:'photo.png',type:'image/png',size:3,chunks:1}]}));
+ await assertSucceeds(setDoc(doc(a.firestore(),'reports/video-sensitive'),{...report,id:'video-sensitive',sensitiveContent:true,media:[{id:'0',ownerUid:'alice',name:'video.webm',type:'video/webm',size:3,chunks:1}]}));
+ for(const [id,values] of [['large-image',{size:6*1024*1024,chunks:128}]]){
+  await assertFails(setDoc(doc(a.firestore(),'reports/'+id),{...report,id,media:[{id:'0',ownerUid:'alice',name:'photo.png',type:'image/png',size:3,chunks:1,...values}]}));
+ }
+ console.log('PASS: sensibilidad exige multimedia y tamaños limitados');
  console.log('PASS: una evidencia');
  await assertSucceeds(setDoc(doc(a.firestore(),'reports/ten-media'),{...report,id:'ten-media',media:Array.from({length:10},(_,i)=>({id:String(i),ownerUid:'alice',name:'x.png',type:'image/png',size:3,chunks:1}))}));
  console.log('PASS: diez evidencias');
@@ -16,6 +23,10 @@ try{
  await assertFails(setDoc(doc(b.firestore(),'reports/spoof'),{...report,id:'spoof'}));
  await assertFails(updateDoc(doc(a.firestore(),'reports/test-report'),{authorUid:'bob'}));
  await assertFails(updateDoc(doc(a.firestore(),'reports/test-report'),{status:'rejected'}));
+ await assertFails(updateDoc(doc(a.firestore(),'reports/test-report'),{title:'x'.repeat(2000)}));
+ await assertFails(updateDoc(doc(a.firestore(),'reports/test-report'),{createdAt:fsTime()}));
+ await assertFails(setDoc(doc(a.firestore(),'reports/missing-title'),Object.fromEntries(Object.entries({...report,id:'missing-title'}).filter(([key])=>key!=='title'))));
+ await assertFails(setDoc(doc(a.firestore(),'flags/test-report_post_alice'),{reportId:'test-report',replyId:'post',reason:'Acoso',details:'x'.repeat(501),reporterUid:'alice',createdAt:fsTime()}));
  await assertFails(setDoc(doc(a.firestore(),'reports/bad-media'),{...report,id:'bad-media',media:[{id:'0',ownerUid:'bob',name:'x',type:'image/png',size:4,chunks:1}]}));
  await assertFails(setDoc(doc(a.firestore(),'reports/bad-size'),{...report,id:'bad-size',media:[{id:'0',ownerUid:'alice',name:'x',type:'image/png',size:999999999,chunks:1}]}));
  await assertFails(setDoc(doc(a.firestore(),'profiles/alice'),{uid:'alice',alias:'Anónimo',tiktokUsername:'valid_name',tiktokVerified:true,updatedAt:fsTime()}));
@@ -61,6 +72,7 @@ try{
  await env.withSecurityRulesDisabled(async c=>{await set(ref(c.database(),'evidenceVisibility/alice/test-report'),{ownerUid:'alice',visible:true});});
  await assertSucceeds(get(ref(b.database(),path)));
  await assertSucceeds(remove(ref(a.database(),'evidence/alice/test-report')));
+ await assertFails(set(ref(a.database(),'visits/alice'),{firstSeen:1}));
  await assertSucceeds(set(ref(a.database(),'visits/alice'),{firstSeen:rtTime()}));
  await assertFails(set(ref(a.database(),'visits/alice'),{firstSeen:rtTime()}));
  await assertFails(get(ref(b.database(),'visits')));

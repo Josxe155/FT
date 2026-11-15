@@ -105,3 +105,35 @@ MULTIMEDIA Y DASHBOARD MANUAL — 15 NOV 2026
   lectura de las fotos desde otro invitado y carga del dashboard.
 - La finalización del acceso invitado conserva los formularios y visores abiertos;
   los datos y las dos cuentas anónimas de QA se retiraron al terminar.
+
+Revisión final: sensibilidad multimedia y formularios de comentarios
+- PASS tipos TypeScript y compilación.
+- PASS contenido sensible 320/390/768/1440: título/descripcion visibles,
+  fotos/vídeos cubiertos, comentarios accesibles, interruptor sin adjuntos
+  deshabilitado, retirada de archivos, fotos de seguimiento y registros antiguos.
+- PASS comentarios: limpieza tras sustitución remota del formulario, bloqueo
+  de duplicados durante el envío, respuesta anidada y borrador tras fallo.
+- PASS rutas 390/1440: acceso, inicio, búsqueda, 14 cantones, ajustes, apodo,
+  preferencias, Mis funas, vinculación/eliminación de TikTok y salida.
+- PASS dashboard 390/1440: revisar/retirar/republicar y bloqueo de archivos,
+  cancelar, paginación, búsqueda, evidencias y mantenimiento manual.
+- PASS multimedia 320/390/1440; adaptador multimedia; pruebas de mantenimiento.
+- PASS emuladores Auth/Firestore/RTDB: mantenimiento y reglas; diez evidencias,
+  sensibilidad con adjuntos, privacidad, autoría, cambios inválidos,
+  límites de imágenes/denuncias y primera visita con hora del servidor.
+- PASS deploy --dry-run: Firestore y RTDB. Compilación válida; dos avisos
+  preexistentes de parámetro uid sin uso en funciones de totales.
+- PASS configuración remota Auth: Google/invitados habilitados y dominio
+  funados-todos.web.app autorizado. Sin nueva autorización Google interactiva.
+- Alcance y límites documentados en docs/REVISION-FINAL.md y AUDITORIA-FINAL.json.
+- PASS producción final: texto sensible visible, campos vacíos al comentar y
+  responder, vídeo reproducible, cuatro fotos en actualización y acceso de
+  otro invitado. Sin FirebaseError de permisos tras esperar la confirmación
+  del comentario antes de escuchar sus reacciones. Nueva regresión del
+  adaptador: PASS para creación pendiente, confirmación y edición pendiente.
+- Observación externa: dos peticiones de fotografías de cantones a terceros
+  respondieron 503 en el navegador de prueba; la interfaz conserva el fondo
+  de la tarjeta mediante su manejador de error. No son errores de Firebase.
+- Se retiraron la publicación, adjuntos, comentarios y las dos identidades
+  anónimas creadas por la prueba; no se borraron cuentas ni contenido reales.
+- Deploy Hosting/Firestore/RTDB completado en funados-todos.

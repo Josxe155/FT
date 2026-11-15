@@ -23,3 +23,15 @@ const before=created;waiter=new Promise(resolve=>release=resolve);
 const stale=context.loadEvidenceURL('private',item);context.clearEvidenceCache();release();
 await assert.rejects(stale,/sesión/);assert.equal(created,before,'Una descarga pendiente no repuebla la caché después de cerrar sesión');
 console.log('PASS adaptador multimedia: concurrencia, URLs antiguas, límites de caché y cierre de sesión');
+
+let replySnapshot,replyOptions,visibleReplies=[];
+context.qaSnapshot=(...args)=>{replyOptions=args[1];replySnapshot=args[2];return ()=>{};};
+vm.runInContext('modules={firestore:{query:()=>({}),collection:()=>({}),where:()=>({}),limit:()=>200,onSnapshot:qaSnapshot}};',context);
+context.listenReplies('post','alice',list=>visibleReplies=list);
+assert.equal(replyOptions.includeMetadataChanges,true);
+const pending={id:'pending',metadata:{hasPendingWrites:true},data:()=>({text:'nuevo',createdAt:null})};
+replySnapshot({docs:[pending]});assert.equal(visibleReplies.length,0,'Sin escuchas de reacciones antes de confirmar un comentario nuevo');
+const confirmed={...pending,metadata:{hasPendingWrites:false},data:()=>({text:'nuevo',createdAt:{toMillis:()=>123}})};
+replySnapshot({docs:[confirmed]});assert.equal(visibleReplies.length,1);
+replySnapshot({docs:[{...confirmed,metadata:{hasPendingWrites:true}}]});assert.equal(visibleReplies.length,1,'Una edición pendiente no oculta un comentario ya confirmado');
+console.log('PASS comentarios: esperar confirmación de creación antes de suscribir reacciones');
