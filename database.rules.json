@@ -6,26 +6,65 @@
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
         ".write": "auth != null && auth.uid === $uid",
-        ".validate": "newData.hasChildren(['online','lastSeen']) && newData.child('online').isBoolean() && newData.child('lastSeen').isNumber()"
+        ".validate": "newData.hasChildren(['online','lastSeen']) && newData.child('online').isBoolean() && newData.child('lastSeen').isNumber()",
+        "online": {
+          ".validate": true
+        },
+        "lastSeen": {
+          ".validate": true
+        },
+        "$other": {
+          ".validate": false
+        }
       }
     },
     "visits": {
       ".read": "auth != null && auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'",
       "$uid": {
         ".write": "auth != null && auth.uid === $uid && !data.exists()",
-        ".validate": "newData.hasChildren(['firstSeen']) && newData.child('firstSeen').isNumber()"
+        ".validate": "newData.hasChildren(['firstSeen']) && newData.child('firstSeen').isNumber()",
+        "firstSeen": {
+          ".validate": true
+        },
+        "$other": {
+          ".validate": false
+        }
       }
     },
     "evidence": {
       "$uid": {
         "$reportId": {
-          ".read": "auth != null && root.child('blockedEvidence').child($reportId).val() !== true && (auth.uid === $uid || root.child('evidenceVisibility').child($reportId).child('visible').val() === true || (auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'))",
+          ".read": "auth != null && root.child('blockedEvidence').child($reportId).val() !== true && (auth.uid === $uid || (root.child('evidenceVisibility').child($uid).child($reportId).child('visible').val() === true || (root.child('evidenceVisibility').child($reportId).child('visible').val() === true && root.child('evidenceVisibility').child($reportId).child('ownerUid').val() === $uid)) || (auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'))",
           "files": {
             "$slot": {
               ".validate": "$slot.matches(/^[0-9]$/) && newData.hasChild('meta')",
               "meta": {
                 ".write": "auth != null && auth.uid === $uid && $slot.matches(/^[0-9]$/) && !data.exists() && root.child('blockedEvidence').child($reportId).val() !== true",
-                ".validate": "newData.hasChildren(['id','ownerUid','name','type','size','chunks','createdAt']) && newData.child('id').val() === $slot && newData.child('ownerUid').val() === $uid && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 90 && newData.child('type').isString() && newData.child('type').val().matches(/^(image\\/(jpeg|png|webp)|video\\/(mp4|webm|quicktime))$/) && newData.child('size').isNumber() && newData.child('size').val() > 0 && newData.child('size').val() <= 10485760 && (!newData.child('type').val().matches(/^image\\//) || newData.child('size').val() <= 5242880) && newData.child('chunks').isNumber() && newData.child('chunks').val() >= 1 && newData.child('chunks').val() <= 220 && newData.child('createdAt').isNumber()"
+                ".validate": "newData.hasChildren(['id','ownerUid','name','type','size','chunks','createdAt']) && newData.child('id').val() === $slot && newData.child('ownerUid').val() === $uid && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 90 && newData.child('type').isString() && newData.child('type').val().matches(/^(image\\/(jpeg|png|webp)|video\\/(mp4|webm|quicktime))$/) && newData.child('size').isNumber() && newData.child('size').val() > 0 && newData.child('size').val() <= 10485760 && (!newData.child('type').val().matches(/^image\\//) || newData.child('size').val() <= 5242880) && newData.child('chunks').isNumber() && newData.child('chunks').val() >= 1 && newData.child('chunks').val() <= 220 && newData.child('createdAt').isNumber() && newData.child('createdAt').val() === now && newData.child('chunks').val() % 1 === 0 && newData.child('size').val() % 1 === 0 && newData.child('size').val() > (newData.child('chunks').val() - 1) * 49152 && newData.child('size').val() <= newData.child('chunks').val() * 49152",
+                "id": {
+                  ".validate": true
+                },
+                "ownerUid": {
+                  ".validate": true
+                },
+                "name": {
+                  ".validate": true
+                },
+                "type": {
+                  ".validate": true
+                },
+                "size": {
+                  ".validate": true
+                },
+                "chunks": {
+                  ".validate": true
+                },
+                "createdAt": {
+                  ".validate": true
+                },
+                "$other": {
+                  ".validate": false
+                }
               },
               "chunks": {
                 "$index": {
@@ -34,15 +73,27 @@
                 }
               }
             }
-          }
+          },
+          ".write": "auth != null && auth.uid === $uid && !newData.exists()"
         }
       }
     },
     "evidenceVisibility": {
       ".read": false,
-      "$reportId": {
-        ".write": "auth != null && ((!data.exists() && auth.uid === newData.child('ownerUid').val() && newData.child('visible').val() === true) || (auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'))",
-        ".validate": "newData.hasChildren(['ownerUid','visible']) && newData.child('ownerUid').isString() && newData.child('visible').isBoolean()"
+      "$uid": {
+        "$reportId": {
+          ".write": "auth != null && ((auth.uid === $uid && newData.child('ownerUid').val() === $uid && !data.exists() && newData.child('visible').val() === true && root.child('evidence').child($uid).child($reportId).child('files').exists()) || (auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'))",
+          ".validate": "newData.hasChildren(['ownerUid','visible']) && newData.child('ownerUid').isString() && newData.child('visible').isBoolean()",
+          "ownerUid": {
+            ".validate": true
+          },
+          "visible": {
+            ".validate": true
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
       }
     },
     "blockedEvidence": {

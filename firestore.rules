@@ -1,9 +1,19 @@
 rules_version = '2';
+// Esquema: reports/{id}: id,canton,title,description,category,status,authorUid,
+// authorAlias,createdAt,images y media/sensitiveContent opcionales.
+// media contiene hasta diez metadatos {id,ownerUid,name,type,size,chunks}.
+// Subcolecciones: replies (texto/autor/estado/fecha/parentId opcional),
+// updates (texto/autor/fecha), reactions (kind/updatedAt), reactionStats (totales/fecha).
+// flags: reportId,replyId,reason,reporterUid,createdAt y details opcional.
+// userPrefs: uid,alias,updatedAt. profiles: uid,alias,tiktokUsername,
+// tiktokVerified,updatedAt. Identidad y administración proceden del token firmado.
+// Sin vencimiento temporal. Ver docs/SEGURIDAD.md para límites y pruebas.
+
 service cloud.firestore {
   match /databases/{database}/documents {
     function signed() { return request.auth != null; }
     // La identidad proviene de un token de Firebase Authentication firmado, no del navegador.
-    function admin() { return signed() && request.auth.token.email_verified == true && request.auth.token.email == 'alexander155alvarado@gmail.com'; }
+    function admin() { return signed() && request.auth.token.get('email_verified', false) == true && request.auth.token.get('email', '') == 'alexander155alvarado@gmail.com'; }
     function canton(c) { return c in ['arenillas','atahualpa','balsas','chilla','el-guabo','huaquillas','las-lajas','machala','marcabeli','pasaje','pinas','portovelo','santa-rosa','zaruma']; }
     function approvedPost(postId) {
       return signed() && exists(/databases/$(database)/documents/reports/$(postId))
@@ -60,22 +70,57 @@ service cloud.firestore {
         && after.wow == before.wow + (afterKind == 'wow' ? 1 : 0) - (beforeKind == 'wow' ? 1 : 0)
         && after.concern == before.concern + (afterKind == 'concern' ? 1 : 0) - (beforeKind == 'concern' ? 1 : 0);
     }
+    // Evidencias: metadatos acotados, sin bytes ni URLs arbitrarias en Firestore.
+    function validMediaItem(m, uid, slot) {
+      return m.keys().size() == 6 && m.id == slot && m.ownerUid == uid
+        && m.name.matches('^.{1,90}$')
+        && m.type.matches('^(image/(png|jpeg|webp)|video/(mp4|webm|quicktime))$')
+        && m.size > 0 && m.size <= 10485760
+        && m.chunks > 0 && m.chunks <= 214;
+    }
+    function validMedia(items, uid) {
+      let n = items.size();
+      return items is list && n <= 10
+        && (n <= 0 || validMediaItem(items[0],uid,'0'))
+        && (n <= 1 || validMediaItem(items[1],uid,'1'))
+        && (n <= 2 || validMediaItem(items[2],uid,'2'))
+        && (n <= 3 || validMediaItem(items[3],uid,'3'))
+        && (n <= 4 || validMediaItem(items[4],uid,'4'))
+        && (n <= 5 || validMediaItem(items[5],uid,'5'))
+        && (n <= 6 || validMediaItem(items[6],uid,'6'))
+        && (n <= 7 || validMediaItem(items[7],uid,'7'))
+        && (n <= 8 || validMediaItem(items[8],uid,'8'))
+        && (n <= 9 || validMediaItem(items[9],uid,'9'))
+        ;
+    }
+
+    function validProfile(d, uid) {
+      return d.keys().hasOnly(['uid','alias','tiktokUsername','tiktokVerified','updatedAt'])
+        && d.keys().hasAll(['uid','alias','tiktokUsername','tiktokVerified','updatedAt'])
+        && d.uid == uid && d.tiktokVerified == false
+        && d.alias is string && d.alias.size() <= 90
+        && d.tiktokUsername is string && d.tiktokUsername.matches('^[a-zA-Z0-9._]{2,24}$')
+        && d.updatedAt == request.time;
+    }
+    function validNewReport(d, reportId, uid) {
+      let media = d.get('media', []);
+      return d.keys().hasOnly(['id','canton','title','description','category','status','authorUid','authorAlias','createdAt','images','media','sensitiveContent'])
+        && d.keys().hasAll(['id','canton','title','description','category','status','authorUid','authorAlias','createdAt','images'])
+        && d.id == reportId && d.authorUid == uid
+        && d.status == 'approved' && d.category == 'Funa'
+        && d.authorAlias == 'Anónimo' && canton(d.canton)
+        && d.title is string && d.title.size() >= 10 && d.title.size() <= 110
+        && d.description is string && d.description.size() >= 25 && d.description.size() <= 1800
+        && d.images is list && d.images.size() == 0
+        && validMedia(media,uid)
+        && (!('sensitiveContent' in d) || d.sensitiveContent is bool)
+        && d.createdAt == request.time;
+    }
     match /reports/{reportId} {
       // Importante: las consultas del cliente filtran status; las reglas no filtran resultados.
       allow get, list: if signed() && (resource.data.status == 'approved'
         || resource.data.authorUid == request.auth.uid || admin());
-      allow create: if signed()
-        && request.resource.data.keys().hasOnly(['id','canton','title','description','category','status','authorUid','authorAlias','createdAt','images','media','sensitiveContent'])
-        && request.resource.data.keys().hasAll(['id','canton','title','description','category','status','authorUid','authorAlias','createdAt','images'])
-        && request.resource.data.id == reportId && request.resource.data.authorUid == request.auth.uid
-        && request.resource.data.status == 'approved' && request.resource.data.category == 'Funa'
-        && request.resource.data.authorAlias == 'Anónimo' && canton(request.resource.data.canton)
-        && request.resource.data.title is string && request.resource.data.title.size() >= 10 && request.resource.data.title.size() <= 110
-        && request.resource.data.description is string && request.resource.data.description.size() >= 25 && request.resource.data.description.size() <= 1800
-        && request.resource.data.images is list && request.resource.data.images.size() <= 10
-        && (!('media' in request.resource.data) || (request.resource.data.media is list && request.resource.data.media.size() <= 10))
-        && (!('sensitiveContent' in request.resource.data) || request.resource.data.sensitiveContent is bool)
-        && request.resource.data.createdAt == request.time;
+      allow create: if signed() && validNewReport(request.resource.data,reportId,request.auth.uid);
       // Cambios de estado por administrador. El frontend no puede autoaprobar contenidos retirados.
       allow update: if admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedAt','reportCount'])
         && request.resource.data.status in ['approved','pending','rejected'];
@@ -180,12 +225,7 @@ service cloud.firestore {
       // TikTok declarado voluntariamente; no se anuncia verificación oficial.
       allow get, list: if signed();
       allow create, update: if signed() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['uid','alias','tiktokUsername','tiktokVerified','updatedAt'])
-        && request.resource.data.uid == uid && request.resource.data.tiktokVerified == false
-        && request.resource.data.alias is string && request.resource.data.alias.size() <= 90
-        && request.resource.data.tiktokUsername is string
-        && request.resource.data.tiktokUsername.size() >= 2 && request.resource.data.tiktokUsername.size() <= 24
-        && request.resource.data.updatedAt == request.time;
+        && validProfile(request.resource.data,uid);
       allow delete: if signed() && request.auth.uid == uid;
     }
     match /{all=**} { allow read, write: if false; }

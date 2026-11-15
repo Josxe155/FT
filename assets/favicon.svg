@@ -1,1 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><title>Funados Todos</title><defs><linearGradient id="b" x2="1" y2="1"><stop stop-color="#182e68"/><stop offset="1" stop-color="#080d1b"/></linearGradient></defs><rect width="64" height="64" rx="17" fill="url(#b)"/><path d="M14 27h10l22-11v32L24 37H14a4 4 0 0 1-4-4v-2a4 4 0 0 1 4-4Z" fill="#f5f8ff"/><path d="m21 37 4 15h9l-5-12Z" fill="#f5f8ff"/><path d="M43 17h5v31h-5z" fill="#ff607b"/><path d="m53 23 4-3m-3 12h5m-6 9 4 3" fill="none" stroke="#ff607b" stroke-width="3.5" stroke-linecap="round"/><path d="M16 28h7v8h-7z" fill="#739bff"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+<title id="title">Funados Todos</title><desc id="desc">Megáfono de marfil y coral sobre un emblema azul medianoche.</desc>
+<defs>
+<linearGradient id="base" x2="1" y2="1"><stop stop-color="#243b67"/><stop offset=".55" stop-color="#111e39"/><stop offset="1" stop-color="#080f21"/></linearGradient>
+<linearGradient id="ivory" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#fffef8"/><stop offset="1" stop-color="#cad9f1"/></linearGradient>
+<linearGradient id="coral" x2=".5" y2="1"><stop stop-color="#ffa397"/><stop offset="1" stop-color="#ed5371"/></linearGradient>
+<linearGradient id="edge" x2="1" y2="1"><stop stop-color="#b2d1ff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity=".06"/></linearGradient>
+</defs>
+<rect width="256" height="256" rx="66" fill="url(#base)"/>
+<rect x="7" y="7" width="242" height="242" rx="60" fill="none" stroke="url(#edge)"/>
+<circle cx="121" cy="125" r="91" fill="none" stroke="#9cbfff" stroke-opacity=".08"/>
+<g transform="rotate(-12 123 126)">
+<path d="m87 142 12 53q2 7 9 7h15q9 0 6-9l-15-49Z" fill="url(#ivory)"/>
+<path d="M65 101h27l78-34v112l-78-34H65q-17 0-17-17v-10q0-17 17-17Z" fill="url(#ivory)"/>
+<path d="m92 101 78-34v16l-78 31Z" fill="#fff" fill-opacity=".6"/>
+<rect x="164" y="63" width="15" height="120" rx="7.5" fill="url(#coral)"/>
+<rect x="54" y="108" width="31" height="30" rx="9" fill="#6f94cc"/>
+<path d="M192 87q18 35 0 71" fill="none" stroke="url(#coral)" stroke-width="8" stroke-linecap="round"/>
+<path d="M210 75q25 48 0 95" fill="none" stroke="#e8b2ac" stroke-opacity=".45" stroke-width="5" stroke-linecap="round"/>
+</g>
+</svg>

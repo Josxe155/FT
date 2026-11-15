@@ -5,3 +5,7 @@ service-account*.json
 !.env.example
 .firebase/
 .DS_Store
+
+# Emuladores y dependencias de pruebas
+*.log
+qa/node_modules

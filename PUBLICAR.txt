@@ -1,13 +1,18 @@
-FUNADOS TODOS V15 — PRIMER DESPLIEGUE
+FUNADOS TODOS — PUBLICACIÓN
 
-1. Abre README.md y completa los requisitos de Firebase.
-2. databaseURL y RTDB_URL configuradas con la instancia proporcionada. Verifica que sea la misma base en Console.
-3. cd source && npm install && npm run build && cd ..
-4. cd functions && npm install && cd ..
+1. Lee README.md y docs/SEGURIDAD.md.
+2. npm ci --prefix source
+3. npm run check --prefix source
+4. npm run build --prefix source
 5. node scripts/preflight.mjs
-6. firebase login && firebase use funados-todos
-7. Prueba primero con Firebase Emulator Suite.
-8. firebase deploy --only firestore:rules,firestore:indexes,database,functions,hosting
-9. Acceso admin: lee README.md y ejecuta functions/grant-admin.mjs desde entorno autorizado.
+6. npm ci --prefix qa
+7. npx -y firebase-tools@latest emulators:exec --only firestore,database --project demo-funados-security 'node qa/test_rules.mjs'
+8. npx -y firebase-tools@latest login
+9. npx -y firebase-tools@latest deploy --only hosting,firestore:rules,firestore:indexes,database --project funados-todos
 
-NO DESPLEGADO REMOTAMENTE: falta sesión Firebase CLI autorizada y verificar las reglas. NO INCLUIR CONTRASEÑAS EN EL CÓDIGO.
+Hosting: https://funados-todos.web.app/
+Panel: https://funados-todos.web.app/dashboard.html
+
+No hay Cloud Functions. No despliegues functions ni busques un grant-admin.mjs inexistente.
+Las reglas no caducan a los 30 días. Esto no cambia el plan, las cuotas ni los créditos promocionales.
+La configuración web de Firebase es pública; nunca añadas claves privadas o tokens a Hosting.

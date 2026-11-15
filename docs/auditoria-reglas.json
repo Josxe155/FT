@@ -1,0 +1,12 @@
+{
+  "score": 3,
+  "summary": "Revisión con permisos por identidad y mejoras de validación; persisten riesgos operativos y de abuso de cuotas. No es una certificación de seguridad.",
+  "findings": [
+    {"check":"Authority Source / Path Scoping","severity":"major","issue":"La visibilidad antigua se indexaba solo por reporte y podía reservarse por otra cuenta.","recommendation":"Corregido: visibilidad nueva por UID/reporte; compatibilidad antigua condicionada al propietario."},
+    {"check":"Type Safety / Resource Exhaustion","severity":"moderate","issue":"Los metadatos de medios no validaban todos sus campos y relaciones.","recommendation":"Corregido: esquema, MIME, dueño, posiciones, tamaños y coherencia de bloques."},
+    {"check":"Create vs Update","severity":"minor","issue":"El perfil TikTok admitía nombres con formato inválido.","recommendation":"Corregido: validador compartido para creación y actualización."},
+    {"check":"Business Logic","severity":"moderate","issue":"No se permitía limpiar la carpeta propia tras una subida fallida.","recommendation":"Corregido: borrado limitado al propietario y a eliminación completa de su carpeta."},
+    {"check":"Quota / Abuse","severity":"moderate","issue":"No hay límites de frecuencia de un backend ni App Check forzado; cuentas anónimas pueden renovarse.","recommendation":"Pendiente: medir uso, preparar App Check y límites de abuso sin cambiar facturación sin autorización."},
+    {"check":"Cross-service consistency","severity":"moderate","issue":"Moderación y visibilidad atraviesan Firestore y RTDB sin transacción conjunta.","recommendation":"Supervisar fallos parciales; mantener controles de administración y verificación posterior."}
+  ]
+}

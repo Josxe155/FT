@@ -137,7 +137,7 @@ export async function loadEvidenceURL(reportId:string,item:EvidenceMeta):Promise
   const snap=await d.get(d.ref(rtdb,`${path}/chunks`));
   const blocks=snap.val() as Record<string,string>|null;
   if(!blocks)throw new Error('La evidencia no está disponible.');
-  if(item.chunks<1 || item.chunks>220)throw new Error('Evidencia inválida.');
+  if(!Number.isInteger(item.chunks) || !Number.isInteger(item.size) || item.size<1 || item.size>10*1024*1024 || item.chunks<1 || item.chunks>214)throw new Error('Evidencia inválida.');
   const bytes:Uint8Array[]=[];
   let total=0;
   for(let i=0;i<item.chunks;i++){
@@ -185,7 +185,7 @@ export async function addReport(data:Report,files:File[]):Promise<{warning?:stri
     await f.setDoc(f.doc(db,'reports',data.id),{...data,images:[],media,status:'approved',createdAt:f.serverTimestamp()});
     published=true;
     // La visibilidad se registra solo para el autor; el panel puede bloquearla al retirar contenido.
-    if (files.length) await modules.database.set(modules.database.ref(rtdb,`evidenceVisibility/${data.id}`),{ownerUid:owner,visible:true});
+    if (files.length) await modules.database.set(modules.database.ref(rtdb,`evidenceVisibility/${owner}/${data.id}`),{ownerUid:owner,visible:true});
   }catch(err){
     // Intento de limpieza si falla el guardado de Firestore o de un fragmento.
     if(!published && files.length && realtimeMediaAvailable()){

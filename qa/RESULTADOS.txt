@@ -43,3 +43,14 @@ REVISIÓN CON ACCESO REAL A FIREBASE
 - Archivos seleccionados reiniciados al abrir una nueva publicación.
 - Contenido sensible: cuatro resoluciones aprobadas, incluida publicación posterior sin archivos.
 - JavaScript con revalidación de caché y favicon con URL versionada.
+
+AUDITORÍA Y NUEVA IDENTIDAD — 15 NOV 2026
+- Logotipo vectorial, favicon e iconos 192/512 renovados; README inspirado en Nexus Chat.
+- Facturación remota desactivada. No se cambió el plan.
+- Clave web Firebase restringida a referentes propios y desarrollo local; operación confirmada.
+- Firestore y RTDB: sin vencimiento temporal; correcciones de validación y propiedad.
+- Emulator Suite: PASS con firebase 13.3.0 y rules-unit-testing 6.0.0, Java 21.
+- PASS creación con cero, una y diez evidencias y batería de accesos no autorizados.
+- Los mensajes permission_denied de casos negativos son esperados por assertFails.
+- PASS interfaz 390 px; menú y ajustes 390/1440; sensible 320/390/768/1440.
+- Guía y riesgos pendientes en docs/SEGURIDAD.md; sin garantía de tráfico ilimitado.

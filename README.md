@@ -1,85 +1,163 @@
-# ⚖️ Funados Todos
+<div align="center">
 
-> Plataforma comunitaria para compartir reportes locales de forma anónima y responsable en los cantones de El Oro, Ecuador.
+<img src="source/public/assets/logo.svg" alt="Logotipo de Funados Todos" width="112" height="112" />
 
-[![Firebase Hosting](https://img.shields.io/badge/Firebase-Hosting-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com/products/hosting)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Estado](https://img.shields.io/badge/estado-en%20desarrollo-5b6cff)](#-estado-del-proyecto)
+# Funados Todos
 
-## ✨ Características
+**La voz de tu comunidad, en un solo lugar.**
 
-- 🗺️ Explora los 14 cantones de El Oro y sus publicaciones.
-- 🕵️ Accede con Google o como invitado; los autores se muestran como anónimos.
-- 💬 Crea comentarios, respuestas, ediciones y eliminaciones propias.
-- 👍 Reacciona a publicaciones y comentarios.
-- 🚩 Reporta contenido; el motivo **Otro** requiere explicación.
-- 🖼️ Adjunta evidencias de imagen o video mediante Realtime Database.
-- 🎵 Enlaza voluntariamente un perfil de TikTok.
-- 🛡️ Incluye reglas para Firestore y Realtime Database, más cabeceras de seguridad para Hosting.
+Reportes locales, conversaciones y evidencias de los 14 cantones de El Oro.<br />
+Una experiencia para celular, tablet y computadora.
 
-## 🧰 Tecnologías
+[![Web](https://img.shields.io/badge/WEB-ABRIR%20FUNADOS-ED5371?style=for-the-badge&logo=firebase&logoColor=white)](https://funados-todos.web.app/)
+[![TypeScript](https://img.shields.io/badge/TYPESCRIPT-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](source/package.json)
+[![Firebase](https://img.shields.io/badge/FIREBASE-HOSTING%20%2B%20DATOS-FFCA28?style=for-the-badge&logo=firebase&logoColor=20232A)](firebase.json)
+[![Acceso](https://img.shields.io/badge/ACCESO-GOOGLE%20%2B%20INVITADO-648BC4?style=for-the-badge&logo=google&logoColor=white)](#-acceso-y-privacidad)
 
-| Área | Tecnología |
-| --- | --- |
-| Interfaz | TypeScript, Vite y CSS responsivo |
-| Autenticación | Firebase Authentication (Google / anónimo) |
-| Datos | Cloud Firestore y Firebase Realtime Database |
-| Hosting | Firebase Hosting |
+[Ver la web](https://funados-todos.web.app/) · [Inicio rápido](#-inicio-rápido) · [Configuración](#-configuración) · [Seguridad](docs/SEGURIDAD.md)
 
-## 🚀 Desarrollo local
+</div>
 
-Requisitos: Node.js 22+, npm y una configuración válida de Firebase en `config.js`.
+---
 
-```bash
-cd source
+## ✨ El proyecto
+
+Funados Todos reúne reportes de la comunidad de **El Oro, Ecuador**, con evidencias, comentarios y herramientas de moderación. El logotipo representa un megáfono sobre azul medianoche, con acentos coral y marfil.
+
+| 📍 Tu cantón | 📣 Publicaciones | 💬 Conversaciones |
+| :--- | :--- | :--- |
+| Explora los 14 cantones y sus reportes. | Título, descripción y hasta diez evidencias. | Comentarios, respuestas, edición y eliminación propias. |
+
+| 🖼️ Evidencias | 🛡️ Moderación | 🎵 Identidad opcional |
+| :--- | :--- | :--- |
+| Imágenes hasta 5 MB y videos hasta 10 MB por archivo. | Reportes por motivo y panel privado de administración. | Puedes enlazar voluntariamente tu cuenta de TikTok. |
+
+## 🔑 Acceso y privacidad
+
+- **Google:** acceso mediante una cuenta de Google.
+- **Invitado:** sesión anónima de Firebase y apodo local. No es una cuenta recuperable mediante contraseña.
+- Los autores se muestran como **Anónimo**, salvo que vinculen TikTok. Firebase conserva el UID del autor; no se promete anonimato frente al operador del servicio.
+- **Contenido sensible:** oculta título, descripción y evidencias hasta pulsar «Ver contenido». «Ocultar contenido» vuelve a cubrirlos. Es un control visual, no una barrera de permisos.
+- El panel [`/dashboard.html`](https://funados-todos.web.app/dashboard.html) requiere la cuenta administradora verificada y permisos comprobados por Firebase.
+
+## 🧩 Tecnología
+
+| Capa | Tecnología | Función |
+| :--- | :--- | :--- |
+| Interfaz | TypeScript · CSS | Navegación y componentes del navegador. |
+| Herramientas | TypeScript · Vite | Tipos y desarrollo local. El build vigente emite módulos con `tsc`. |
+| Acceso | Firebase Authentication | Google e invitado. |
+| Publicaciones | Cloud Firestore | Reportes, comentarios, reacciones y perfiles. |
+| Archivos | Realtime Database | Evidencias divididas en bloques; Firestore guarda metadatos. |
+| Publicación | Firebase Hosting | Web estática mediante HTTPS. |
+
+No hay Cloud Functions en este repositorio. Los reportes no disparan por sí solos una retirada automática: la moderación cambia el estado desde el panel.
+
+## 🚀 Inicio rápido
+
+**Requisitos:** Node.js 22 o posterior, npm y Git.
+
+```sh
+git clone https://github.com/Josxe155/Funados-Todos.git
+cd Funados-Todos/source
 npm ci
 npm run check
 npm run build
 cd ..
 node scripts/preflight.mjs
+npx -y firebase-tools@latest emulators:start --only hosting
 ```
 
-Para una vista estática, sirve la carpeta raíz con tu servidor local preferido. Para probar integración real, usa Firebase Emulator Suite y no datos personales.
+Abre **http://localhost:5000**. Este comando solo emula Hosting: la configuración incluida sigue apuntando a los servicios reales de Firebase. Para pruebas de permisos usa un proyecto aislado o Emulator Suite con los SDK conectados explícitamente a sus emuladores.
 
-## ☁️ Despliegue
+## ⚙️ Configuración
 
-1. Crea o selecciona el proyecto Firebase `funados-todos`.
-2. Activa Authentication (Google y Anónimo), Firestore y Realtime Database.
-3. Instala e inicia sesión en Firebase CLI:
+| Archivo | Contenido | ¿Se versiona? |
+| :--- | :--- | :---: |
+| `config.js` | Identificadores públicos y API key web de Firebase. | Sí |
+| `.firebaserc` · `firebase.json` | Proyecto, Hosting y servicios. | Sí |
+| `firestore.rules` · `database.rules.json` | Permisos y validación de datos. | Sí |
+| `firestore.indexes.json` | Índices de consultas. | Sí |
+| Cuentas de servicio, tokens y contraseñas | Credenciales privadas; nunca en código ni en Hosting. | **No** |
 
-```bash
-npm install -g firebase-tools
-firebase login
-firebase use funados-todos
-firebase deploy --only firestore:rules,firestore:indexes,database,hosting
+<details>
+<summary><strong>🔐 Aviso de GitHub: Google API Key</strong></summary>
+
+GitHub detectó la clave web de Firebase en `web/config.js`. Firebase necesita esa configuración en el navegador y la clave es visible en la web publicada. No concede permisos administrativos: los datos dependen de Authentication y de las reglas.
+
+Excluirla del README o moverla a un `.env` que se compila en el navegador no la convierte en secreta. Debe restringirse a los dominios y APIs necesarios. Esta revisión limita sus referentes a los dos dominios Firebase del proyecto y a los puertos locales 5000/5173; conserva las restricciones de APIs existentes para no romper servicios.
+
+No se ha cerrado la alerta de GitHub ni se ha revocado la clave. Si la clave se utilizó también para servicios privados o hay indicios de abuso, corresponde sustituirla y revocarla después de verificar sus consumidores. Más detalle en [Seguridad](docs/SEGURIDAD.md).
+
+</details>
+
+<details>
+<summary><strong>☁️ Producción, modo de prueba y los 30 días</strong></summary>
+
+Las reglas de este repositorio no contienen un acceso global temporal ni una condición que expire después de 30 días. Requieren identidad, comprueban propiedad y rechazan rutas no autorizadas.
+
+El modo de prueba de Firebase suele incluir una fecha de vencimiento en las reglas. Eso es distinto del plan gratuito Spark y de una promoción de Google Cloud. **Cambiar reglas no amplía promociones ni elimina cuotas.** La facturación estaba desactivada en la comprobación remota del 15 de noviembre de 2026; esta revisión no activa facturación ni cambia el plan.
+
+Al llegar a una cuota gratuita pueden fallar lecturas, escrituras o descargas. Revisa Uso y cuotas en Firebase Console. Las reglas no sustituyen controles contra spam ni límites de tráfico.
+
+</details>
+
+## 🛠️ Comandos
+
+| Comando | Acción |
+| :--- | :--- |
+| `npm ci --prefix source` | Instala dependencias. |
+| `npm run check --prefix source` | Comprueba los tipos. |
+| `npm run build --prefix source` | Genera `web/` y sincroniza recursos. |
+| `node scripts/preflight.mjs` | Comprueba estructura y configuración local. |
+| `python qa/test_ui.py 390` | Recorre la interfaz con Chromium y datos locales. |
+| `python qa/test_sensitive.py` | Comprueba ocultación y revelado en cuatro anchos. |
+
+Las pruebas Python necesitan Playwright, Pillow y Chromium. Las pruebas locales de interfaz no demuestran por sí solas que los permisos remotos sean correctos.
+
+## ☁️ Publicar en Firebase
+
+```sh
+npm run check --prefix source
+npm run build --prefix source
+node scripts/preflight.mjs
+npx -y firebase-tools@latest login
+npx -y firebase-tools@latest deploy --only hosting,firestore:rules,firestore:indexes,database --project funados-todos
 ```
 
-La dirección esperada es `https://funados-todos.web.app/` y el panel está en `/dashboard.html`.
+El directorio de Hosting es **`web/`**. Subir un commit a GitHub no publica automáticamente la web. Comprueba y prueba cambios de reglas antes de desplegarlos.
 
-> ⚠️ Este repositorio **no contiene Cloud Functions**. No ejecutes un despliegue de `functions` ni afirmes que existen automatizaciones de backend hasta que dichas funciones se añadan, prueben y desplieguen por separado.
-
-## 🛡️ Seguridad y uso responsable
-
-- Nunca subas claves de servicio, contraseñas, tokens ni archivos `.env`.
-- La configuración web de Firebase es pública por diseño; el control de acceso depende de Authentication y las reglas.
-- Antes de publicar con personas reales, prueba las reglas con Emulator Suite, activa App Check y define un proceso de moderación, retirada de contenido y respuesta a abusos.
-- Una etiqueta de contenido sensible es un aviso visual; no sustituye reglas de acceso estrictas.
-- Evita publicar datos identificativos, amenazas o acusaciones no verificadas. La persona que publica es responsable del contenido y de cumplir la normativa aplicable.
-
-## 📁 Estructura
+## 📂 Estructura
 
 ```text
-source/       Código fuente TypeScript y proceso de compilación
-web/          Archivos publicados por Firebase Hosting
-assets/       Copia estática para desarrollo local
-scripts/      Preflight y sincronización de la compilación
-qa/           Comprobaciones locales reproducibles
+Funados-Todos/
+├── source/src/            Interfaz y adaptador Firebase
+├── source/public/assets/ Identidad visual y recursos originales
+├── web/                  Archivos publicados en Hosting
+├── assets/               Copia estática sincronizada
+├── scripts/              Compilación y comprobaciones
+├── qa/                   Pruebas y resultados
+├── docs/                 Seguridad y mantenimiento
+├── config.js             Configuración pública Firebase
+├── firebase.json         Hosting y servicios
+├── firestore.rules       Reglas Firestore
+└── database.rules.json    Reglas Realtime Database
 ```
 
-## ✅ Estado del proyecto
+## 📚 Documentación y mantenimiento
 
-La comprobación de tipos, la compilación y el preflight se ejecutan localmente. Aún debes validar manualmente Authentication, reglas, permisos y operaciones de datos en Emulator Suite y en el proyecto Firebase autorizado antes de una apertura pública.
+| Guía | Contenido |
+| :--- | :--- |
+| [Seguridad y revisión](docs/SEGURIDAD.md) | API key, permisos, caducidad, límites y pruebas. |
+| [Auditoría estructurada](docs/auditoria-reglas.json) | Hallazgos y alcance de la evaluación. |
+| [Resultados](qa/RESULTADOS.txt) | Verificaciones de interfaz y pruebas reales anteriores. |
+| [Fuentes de imágenes](FUENTES_IMAGENES.md) | Procedencia de las fotografías de cantones. |
 
 ---
 
-Hecho con cuidado para la comunidad de El Oro. 🇪🇨
+<div align="center">
+
+**Funados Todos** · Una voz para la comunidad de El Oro. 🇪🇨<br />
+Comparte información responsable. Evita amenazas, datos privados y acusaciones no verificadas.
+
+</div>

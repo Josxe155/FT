@@ -165,7 +165,7 @@ export async function loadEvidenceURL(reportId, item) {
     const blocks = snap.val();
     if (!blocks)
         throw new Error('La evidencia no está disponible.');
-    if (item.chunks < 1 || item.chunks > 220)
+    if (!Number.isInteger(item.chunks) || !Number.isInteger(item.size) || item.size < 1 || item.size > 10 * 1024 * 1024 || item.chunks < 1 || item.chunks > 214)
         throw new Error('Evidencia inválida.');
     const bytes = [];
     let total = 0;
@@ -229,7 +229,7 @@ export async function addReport(data, files) {
         published = true;
         // La visibilidad se registra solo para el autor; el panel puede bloquearla al retirar contenido.
         if (files.length)
-            await modules.database.set(modules.database.ref(rtdb, `evidenceVisibility/${data.id}`), { ownerUid: owner, visible: true });
+            await modules.database.set(modules.database.ref(rtdb, `evidenceVisibility/${owner}/${data.id}`), { ownerUid: owner, visible: true });
     }
     catch (err) {
         // Intento de limpieza si falla el guardado de Firestore o de un fragmento.
