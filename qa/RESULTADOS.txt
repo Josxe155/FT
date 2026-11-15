@@ -54,3 +54,25 @@ AUDITORÍA Y NUEVA IDENTIDAD — 15 NOV 2026
 - Los mensajes permission_denied de casos negativos son esperados por assertFails.
 - PASS interfaz 390 px; menú y ajustes 390/1440; sensible 320/390/768/1440.
 - Guía y riesgos pendientes en docs/SEGURIDAD.md; sin garantía de tráfico ilimitado.
+
+RETENCIÓN DE 30 DÍAS — IMPLEMENTADA, PROGRAMACIÓN PENDIENTE
+- Política elegida: edad mínima 30 días y cero Me gusta.
+- Limpieza recursiva de publicaciones, comentarios, votos, reportes y evidencias.
+- Cuentas sin actividad 30 días: eliminación de Auth y datos de perfil/preferencias.
+- Administrador y claims protegidos; margen inicial de 30 días para cuentas existentes.
+- Registro de actividad con hora del servidor, sin fechas manipulables desde el cliente.
+- Renovación de token antes de publicar; regreso al acceso para cuentas eliminadas.
+- PASS unitarias: fronteras de 30 días, apoyo, datos inválidos, actividad y protección.
+- PASS emuladores Auth/Firestore/RTDB: cascada, conservación de apoyo y actividad,
+  simulación sin escrituras, ejecución repetida, reintento y margen inicial.
+- PASS reglas: escritura de actividad propia, denegación de acceso ajeno y fechas inventadas.
+- PASS interfaz: publicaciones y comentarios 390 px; ajustes 390/1440;
+  sensible 320/390/768/1440.
+- Dry-run de reglas y Hosting: correcto.
+- Simulación del motor contra producción no completada: transporte de red del SDK
+  no disponible en este entorno; no se borraron datos reales.
+- Revisión automática rechazó crear identidad IAM con permisos de borrado sin
+  autorización explícita. Workflow desactivado hasta aprobación; no hay tarea activa.
+- No se cambió el plan ni se habilitó facturación.
+- PASS CLI: rechaza producción sin activación, destinos mixtos y proyectos demo
+  sin los tres emuladores, antes de conectarse a los servicios.

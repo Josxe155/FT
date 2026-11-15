@@ -1,0 +1,55 @@
+name: Limpieza de Funados Todos
+on:
+  schedule:
+    - cron: '23 5 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Ejecución
+        type: choice
+        options: [dry-run, apply]
+        default: dry-run
+  push:
+    branches: [main]
+    paths: [.github/workflows/maintenance.yml]
+permissions:
+  contents: read
+concurrency:
+  group: funados-maintenance
+  cancel-in-progress: false
+jobs:
+  retention:
+    # Pendiente de autorización explícita para crear la identidad y su vínculo IAM.
+    # Tras configurar y verificar WIF, cambiar false por true mediante un commit revisado.
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      GCLOUD_PROJECT: funados-todos
+      RETENTION_APPLY_AUTHORIZED: 'true'
+      RUN_MODE: ${{ github.event_name == 'schedule' && 'apply' || inputs.mode || 'dry-run' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: maintenance/package-lock.json
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: projects/667015999103/locations/global/workloadIdentityPools/funados-github/providers/github
+          service_account: funados-maintenance@funados-todos.iam.gserviceaccount.com
+          project_id: funados-todos
+      - run: npm ci --prefix maintenance
+      - run: npm test --prefix maintenance
+      - name: Limpiar o simular
+        shell: bash
+        run: |
+          if [ "$RUN_MODE" = "apply" ]; then
+            npm run apply --prefix maintenance
+          else
+            npm run dry-run --prefix maintenance
+          fi

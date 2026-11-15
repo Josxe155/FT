@@ -18,7 +18,7 @@ export const cantons: Canton[] = [
   {slug:'zaruma',name:'Zaruma',subtitle:'Zaruma',image:'https://www.clave.com.ec/wp-content/uploads/2017/08/AR-PN-COSTA05-Parque-Central-de-Zaruma-1.jpg',source:'https://www.clave.com.ec/zaruma-and-its-many-charms/'}
 ];
 export const cantonMap:Record<string,Canton> = Object.fromEntries(cantons.map(c=>[c.slug,c]));
-export type ReportStatus = 'approved' | 'pending' | 'rejected';
+export type ReportStatus = 'approved' | 'pending' | 'rejected' | 'deleting';
 export type ReportCategory = 'Funa';
 export type EvidenceMeta = {id:string;ownerUid:string;name:string;type:string;size:number;chunks:number;localUrl?:string};
 export type Report = {id:string;canton:string;title:string;description:string;category:ReportCategory;status:ReportStatus;authorUid:string;authorAlias:string;createdAt:number;images:string[];media?:EvidenceMeta[];sensitiveContent?:boolean};

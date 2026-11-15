@@ -40,6 +40,41 @@ export async function initFirebase(onUser: (u:User|null)=>void) {
     return true;
   } catch (err) { console.error('Firebase no disponible:',err); throw err; }
 }
+const expiredSessionCodes = new Set(['auth/user-not-found','auth/user-disabled','auth/user-token-expired','auth/invalid-user-token','auth/id-token-revoked']);
+async function requireCurrentSession(uid:string) {
+  if(!auth?.currentUser || auth.currentUser.uid!==uid)throw new Error('Vuelve a iniciar sesión para publicar.');
+  try { await auth.currentUser.getIdToken(true);if(auth.currentUser?.uid!==uid)throw new Error('Vuelve a iniciar sesión para publicar.'); }
+  catch(error:any){
+    if(expiredSessionCodes.has(error?.code)){
+      await modules.authMod.signOut(auth);
+      throw new Error('Tu sesión ha caducado. Vuelve a iniciar sesión para publicar.');
+    }
+    throw error;
+  }
+}
+/** Actividad real: pestaña visible e interacción reciente, como máximo cada quince minutos. */
+export function trackActivity(user:User) {
+  if(!modules?.database || !rtdb)return ()=>{};
+  let stopped=false,pending=false,lastWrite=0,lastInteraction=Date.now();
+  const heartbeat=async()=>{
+    const now=Date.now();
+    if(stopped||pending||document.visibilityState==='hidden'||now-lastInteraction>15*60*1000||now-lastWrite<15*60*1000)return;
+    pending=true;
+    try{
+      await requireCurrentSession(user.uid);
+      if(stopped||auth.currentUser?.uid!==user.uid)return;
+      await modules.database.set(modules.database.ref(rtdb,'activity/'+user.uid),{lastActiveAt:modules.database.serverTimestamp()});
+      lastWrite=Date.now();
+    }catch(error:any){if(!expiredSessionCodes.has(error?.code))console.warn('No se pudo registrar actividad:',error?.code||'sesión no disponible');}
+    finally{pending=false;}
+  };
+  const interact=()=>{lastInteraction=Date.now();void heartbeat();};
+  const visible=()=>{if(document.visibilityState!=='hidden')interact();};
+  document.addEventListener('pointerdown',interact,{passive:true});document.addEventListener('keydown',interact);
+  document.addEventListener('visibilitychange',visible);window.addEventListener('focus',visible);
+  const timer=window.setInterval(()=>{void heartbeat();},15*60*1000);void heartbeat();
+  return ()=>{stopped=true;clearInterval(timer);document.removeEventListener('pointerdown',interact);document.removeEventListener('keydown',interact);document.removeEventListener('visibilitychange',visible);window.removeEventListener('focus',visible);};
+}
 export async function loginGoogle() {
   if (!modules) throw new Error('Firebase aún no está configurado.');
   return modules.authMod.signInWithPopup(auth,new modules.authMod.GoogleAuthProvider());
@@ -175,6 +210,7 @@ async function uploadEvidence(file:File,owner:string,reportId:string,slot:number
 }
 export async function addReport(data:Report,files:File[]):Promise<{warning?:string}>{
   if(!modules||!auth?.currentUser)throw new Error('Inicia sesión para publicar.');
+  await requireCurrentSession(auth.currentUser.uid);
   if(files.length>10)throw new Error('Solo puedes subir diez evidencias.');
   if(files.length && !realtimeMediaAvailable())throw new Error('Activa Realtime Database y añade databaseURL para subir evidencias.');
   const f=modules.firestore,owner=auth.currentUser.uid;

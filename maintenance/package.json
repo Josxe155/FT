@@ -1,0 +1,13 @@
+{
+  "dependencies": {
+    "firebase-admin": "14.5.1"
+  },
+  "name": "funados-maintenance",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "dry-run": "node cleanup.mjs",
+    "apply": "node cleanup.mjs --apply"
+  }
+}

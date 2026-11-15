@@ -9,3 +9,6 @@ service-account*.json
 # Emuladores y dependencias de pruebas
 *.log
 qa/node_modules
+
+# Credenciales efímeras generadas por google-github-actions/auth
+gha-creds-*.json

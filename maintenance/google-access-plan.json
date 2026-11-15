@@ -1,0 +1,37 @@
+{
+  "status": "pending-explicit-approval",
+  "project": "funados-todos",
+  "projectNumber": "667015999103",
+  "serviceAccount": "funados-maintenance@funados-todos.iam.gserviceaccount.com",
+  "poolId": "funados-github",
+  "providerId": "github",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "attributeMapping": {
+    "google.subject": "assertion.sub",
+    "attribute.repository_id": "assertion.repository_id"
+  },
+  "attributeCondition": "assertion.repository_id == '1458089901' && assertion.repository_owner_id == '251517712' && assertion.ref == 'refs/heads/main' && assertion.workflow_ref == 'Josxe155/Funados-Todos/.github/workflows/maintenance.yml@refs/heads/main' && assertion.event_name in ['schedule','workflow_dispatch','push']",
+  "workloadIdentityUserMember": "principalSet://iam.googleapis.com/projects/667015999103/locations/global/workloadIdentityPools/funados-github/attribute.repository_id/1458089901",
+  "proposedCustomRole": {
+    "id": "funadosMaintenance",
+    "permissions": [
+      "datastore.databases.get",
+      "datastore.entities.get",
+      "datastore.entities.list",
+      "datastore.entities.create",
+      "datastore.entities.update",
+      "datastore.entities.delete",
+      "firebasedatabase.instances.get",
+      "firebasedatabase.instances.update",
+      "firebaseauth.users.get",
+      "firebaseauth.users.delete"
+    ]
+  },
+  "notes": [
+    "Plan propuesto: no se ha creado esta identidad ni se han concedido estos permisos.",
+    "No se propone acceso a facturación, otras cuentas de servicio ni administración del proyecto.",
+    "IAM concede acceso al proyecto y no limita por documento: el programa y la confianza del workflow delimitan qué se elimina.",
+    "No se crearán claves privadas descargables. El acceso del workflow será temporal mediante OIDC.",
+    "El administrador del repositorio puede modificar el workflow en main; esa capacidad es sensible."
+  ]
+}

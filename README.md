@@ -127,6 +127,12 @@ npx -y firebase-tools@latest deploy --only hosting,firestore:rules,firestore:ind
 
 El directorio de Hosting es **`web/`**. Subir un commit a GitHub no publica automáticamente la web. Comprueba y prueba cambios de reglas antes de desplegarlos.
 
+## 🧹 Retención de datos
+
+Se ha implementado la política elegida: publicaciones de al menos **30 días y cero Me gusta**, y cuentas normales sin actividad durante 30 días. Incluye limpieza de evidencias, comentarios y datos asociados; protege a administración y da margen inicial a cuentas existentes.
+
+**La limpieza programada todavía no está activada:** requiere aprobar una identidad de mantenimiento con permisos de borrado. El registro de actividad y la renovación de sesión se publican independientemente. Consulta [política, pruebas y activación pendiente](docs/RETENCION.md). El borrado de una cuenta crea una nueva identidad al volver a entrar; no es solo un cierre de sesión.
+
 ## 📂 Estructura
 
 ```text
@@ -136,6 +142,8 @@ Funados-Todos/
 ├── web/                  Archivos publicados en Hosting
 ├── assets/               Copia estática sincronizada
 ├── scripts/              Compilación y comprobaciones
+├── maintenance/          Motor de retención y pruebas; fuera de Hosting
+├── .github/workflows/    Tarea diaria preparada, pendiente de activación
 ├── qa/                   Pruebas y resultados
 ├── docs/                 Seguridad y mantenimiento
 ├── config.js             Configuración pública Firebase
@@ -148,6 +156,7 @@ Funados-Todos/
 
 | Guía | Contenido |
 | :--- | :--- |
+| [Retención y limpieza](docs/RETENCION.md) | Política de 30 días, pruebas y automatización pendiente. |
 | [Seguridad y revisión](docs/SEGURIDAD.md) | API key, permisos, caducidad, límites y pruebas. |
 | [Auditoría estructurada](docs/auditoria-reglas.json) | Hallazgos y alcance de la evaluación. |
 | [Resultados](qa/RESULTADOS.txt) | Verificaciones de interfaz y pruebas reales anteriores. |

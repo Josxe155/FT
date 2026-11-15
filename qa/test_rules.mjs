@@ -22,6 +22,10 @@ try{
  await assertSucceeds(setDoc(doc(a.firestore(),'profiles/alice'),{uid:'alice',alias:'Anónimo',tiktokUsername:'valid_name',tiktokVerified:false,updatedAt:fsTime()}));
  await assertFails(updateDoc(doc(a.firestore(),'profiles/alice'),{tiktokUsername:'bad link /'}));
  await assertFails(setDoc(doc(b.firestore(),'profiles/alice'),{uid:'alice',alias:'Anónimo',tiktokUsername:'valid_name',tiktokVerified:false,updatedAt:fsTime()}));
+ await assertSucceeds(set(ref(a.database(),'activity/alice'),{lastActiveAt:rtTime()}));
+ await assertFails(set(ref(b.database(),'activity/alice'),{lastActiveAt:rtTime()}));
+ await assertFails(set(ref(a.database(),'activity/alice'),{lastActiveAt:1}));
+ await assertFails(set(ref(a.database(),'activity/alice'),{lastActiveAt:rtTime(),admin:true}));
  const path='evidence/alice/test-report/files/0';
  const meta={id:'0',ownerUid:'alice',name:'test.png',type:'image/png',size:3,chunks:1,createdAt:rtTime()};
  await assertSucceeds(set(ref(a.database(),path+'/meta'),meta));

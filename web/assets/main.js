@@ -1,5 +1,5 @@
 import { cantons, cantonMap } from './cantons.js';
-import { firebaseEnabled, initFirebase, loginGoogle, loginGuest, logoutFirebase, saveAlias, listenReports, loadMoreReports, hasMoreReports, getCantonTotals, listenReplies, addReport, realtimeMediaAvailable, loadEvidenceURL, clearEvidenceCache, flagReport, saveTikTok, deleteTikTok, listenTikTok, trackVisit, listenReactionSummary, setReaction, addNestedReply, editReplyText, deleteOwnReply, listenFunaUpdates, addFunaUpdate, listenCommentReactionSummary, setCommentReaction, fetchReportById, countMyReports } from './firebase-client.js';
+import { firebaseEnabled, initFirebase, loginGoogle, loginGuest, logoutFirebase, saveAlias, listenReports, loadMoreReports, hasMoreReports, getCantonTotals, listenReplies, addReport, realtimeMediaAvailable, loadEvidenceURL, clearEvidenceCache, flagReport, saveTikTok, deleteTikTok, listenTikTok, trackVisit, trackActivity, listenReactionSummary, setReaction, addNestedReply, editReplyText, deleteOwnReply, listenFunaUpdates, addFunaUpdate, listenCommentReactionSummary, setCommentReaction, fetchReportById, countMyReports } from './firebase-client.js';
 const app = document.getElementById('app');
 const modal = document.getElementById('modal-root');
 const toasts = document.getElementById('toasts');
@@ -9,7 +9,7 @@ const zeroCounts = () => ({ like: 0, wow: 0, concern: 0 });
 const state = {
     cantonTotals: {}, previewMediaType: 'image/jpeg', commentReactions: {}, myCommentReactions: {}, updatesPost: null, currentUpdates: [], replyTarget: null, editReplyId: null, reactions: {}, myReactions: {}, user: null, busy: false, menu: false, dialogue: null, canton: 'machala', thread: null, flagId: null, flagReplyId: null, imageFiles: [], reports: read(KEY.reports, []), replies: read(KEY.replies, []), remoteReports: [], remoteReplies: [], profiles: [], profileName: read(KEY.tiktok, ''), search: '', online: null, sort: 'recientes', prefs: read(KEY.prefs, { animations: true, compact: false }), previewImage: ''
 };
-let stopReports = () => { }, stopReplies = () => { }, stopTikTok = () => { }, stopPresence = () => { }, stopUpdates = () => { };
+let stopReports = () => { }, stopReplies = () => { }, stopTikTok = () => { }, stopPresence = () => { }, stopActivity = () => { }, stopUpdates = () => { };
 // La decisión de ver una funa sensible dura solo hasta salir de la sesión.
 const revealedSensitivePosts = new Set();
 let commentObserver = null;
@@ -355,6 +355,8 @@ function sensitiveGate(id) {
     return `<section class="sensitive-gate" aria-label="Aviso de contenido sensible"><div class="sensitive-blur" aria-hidden="true"></div><div class="sensitive-gate-body"><span class="sensitive-eye" aria-hidden="true">${icons.eyeOff}</span><h2>Contenido sensible</h2><p>Esta funa puede incluir imágenes, vídeos o información que algunas personas prefieran no ver.</p><button class="sensitive-reveal" type="button" data-action="reveal-sensitive" data-id="${esc(id)}">Ver contenido</button></div></section>`;
 }
 function reportCard(r) {
+    if (r.status === 'deleting')
+        return '<article class="report-card"><h2>Publicación caducada</h2><p>Se está eliminando junto con sus evidencias.</p></article>';
     if (r.status === 'pending')
         return `<article class="report-card report-under-review"><div class="report-top"><span class="report-author">${icons.flag} Funa en revisión</span><time>${formatDate(r.createdAt)}</time></div><div class="review-notice"><h2>Publicación reportada muchas veces</h2><p>Esta funa recibió numerosos reportes y está oculta mientras se revisa. No se muestran sus evidencias ni información.</p></div></article>`;
     if (r.sensitiveContent === true && !revealedSensitivePosts.has(r.id)) {
@@ -519,7 +521,13 @@ function render() { lastRenderedHash = location.hash; if (!state.user) {
 } watchVisibleReactions(); watchVisibleCommentReactions(); hydrateEvidence(); }
 function setUser(user) { postLookups.clear(); finishedPostLookups.clear(); myReportCountRemote = null; revealedSensitivePosts.clear(); if (!user)
     clearEvidenceCache(); if (user?.isAnonymous)
-    user = { ...user, alias: read(KEY.alias, user.alias || 'Invitado') }; state.user = user; state.remoteReports = []; state.remoteReplies = []; state.cantonTotals = {}; state.currentUpdates = []; state.commentReactions = {}; state.myCommentReactions = {}; state.updatesPost = null; state.replyTarget = null; state.editReplyId = null; stopUpdates(); stopCommentReactionWatch(); state.reactions = {}; state.myReactions = {}; reactionObserver?.disconnect(); reactionObserver = null; stopReactionListeners.forEach(stop => stop()); stopReactionListeners = []; stopReports(); stopReplies(); stopTikTok(); stopPresence(); if (user && firebaseEnabled) {
+    user = { ...user, alias: read(KEY.alias, user.alias || 'Invitado') }; state.user = user; state.remoteReports = []; state.remoteReplies = []; state.cantonTotals = {}; state.currentUpdates = []; state.commentReactions = {}; state.myCommentReactions = {}; state.updatesPost = null; state.replyTarget = null; state.editReplyId = null; stopUpdates(); stopCommentReactionWatch(); state.reactions = {}; state.myReactions = {}; reactionObserver?.disconnect(); reactionObserver = null; stopReactionListeners.forEach(stop => stop()); stopReactionListeners = []; stopReports(); stopReplies(); stopTikTok(); stopPresence(); stopActivity(); if (!user) {
+    state.dialogue = null;
+    state.menu = false;
+    state.thread = null;
+    state.imageFiles = [];
+} if (user && firebaseEnabled) {
+    stopActivity = trackActivity(user);
     void countMyReports(user.uid).then(n => { if (state.user?.uid === user.uid) {
         myReportCountRemote = n;
         if (segs()[0] === 'ajustes')

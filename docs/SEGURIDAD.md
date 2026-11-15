@@ -55,3 +55,7 @@ Antes de publicar las reglas también se comprueba su sintaxis con `deploy --dry
 ## Revisión de mantenimiento
 
 Tras cada cambio de reglas: ejecutar emuladores, comprobar invitado y Google, publicar una prueba controlada con y sin imagen, retirarla, y revisar cuotas y errores. No subir tokens, cuentas de servicio ni contraseñas al repositorio.
+
+## Retención implementada
+
+Ver [RETENCION.md](RETENCION.md): registro de actividad protegido, política de cero Me gusta tras 30 días y limpieza de cuentas. La programación queda desactivada hasta aprobar su identidad y los permisos de borrado. No hay un nuevo backend Cloud Functions ni cambio de plan.

@@ -122,7 +122,7 @@ service cloud.firestore {
         || resource.data.authorUid == request.auth.uid || admin());
       allow create: if signed() && validNewReport(request.resource.data,reportId,request.auth.uid);
       // Cambios de estado por administrador. El frontend no puede autoaprobar contenidos retirados.
-      allow update: if admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedAt','reportCount'])
+      allow update: if admin() && resource.data.status != 'deleting' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedAt','reportCount'])
         && request.resource.data.status in ['approved','pending','rejected'];
       allow delete: if admin();
       match /reactions/{uid} {
