@@ -63,13 +63,13 @@ with sync_playwright() as p:
   page.locator('.inline-comment-title [data-action="thread"]').click()
   assert page.locator('.inline-comments').count()==0
   # Updates existing modal
-  page.get_by_role('button',name='Actualizaciones',exact=True).click()
+  page.get_by_role('button',name='Ver actualizaciones de esta funa',exact=True).click()
   assert page.locator('#update-form').count()==1
   page.locator('#update-text').fill('Nueva actualización publicada después de revisar el problema inicial.')
   page.get_by_role('button',name='Publicar actualización').click()
-  assert page.locator('.update-item').count()==1
+  assert page.locator('#updates-feed>.update-card').count()==1
   assert page.locator('#update-text').input_value()==''
-  page.get_by_role('button',name='Cerrar').first.click()
+  page.get_by_role('button',name='Volver a la funa').click()
   # responsive + settings
   if width<=800:
    page.locator('.hamburger').click()
@@ -123,7 +123,7 @@ with sync_playwright() as p:
   page.evaluate("""() => {
     countFunaUpdates=async()=>1;
     listenFunaUpdates=(id,onData,onError)=>{window.__qaUpdates=onData;window.__qaUpdatesError=onError;return ()=>{};};
-    toggleUpdates(state.remoteReports[0].id);
+    openUpdates(state.remoteReports[0].id);
   }""")
   page.locator('#update-text').fill('Borrador con una foto que debe sobrevivir a la escucha remota.')
   page.locator('#update-images').set_input_files(str(root/'source/public/assets/icon-192.png'))

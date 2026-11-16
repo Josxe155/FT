@@ -68,7 +68,7 @@ with sync_playwright() as p:
   assert page.locator('#reply-text').input_value()==''
   assert page.locator('.reply-item').count()==1
   # Las fotos de seguimiento también respetan la cubierta, sin ocultar el texto.
-  post.get_by_role('button',name='Actualizaciones',exact=True).click()
+  post.get_by_role('button',name='Ver actualizaciones de esta funa',exact=True).click()
   update='Seguimiento de prueba cuyo texto siempre debe permanecer visible.'
   page.locator('#update-text').fill(update)
   page.locator('#update-images').set_input_files({'name':'foto-actualizada.png','mimeType':'image/png','buffer':tiny})
@@ -78,8 +78,9 @@ with sync_playwright() as p:
   assert page.locator('.update-message .carousel-slide').count()==0
   page.locator('.update-message').get_by_role('button',name='Ver contenido').click()
   assert page.locator('.update-message .carousel-slide').count()==1
-  page.get_by_role('button',name='Cerrar actualizaciones').click()
+  page.get_by_role('button',name='Volver a la funa').click()
   page.locator('.report-card').first.get_by_role('button',name='Ocultar contenido').click()
+  page.evaluate("navigate('canton/marcabeli')")
   # Una funa normal debe seguir viéndose sin aviso.
   page.get_by_role('button',name='Añadir funa').first.click()
   assert not page.locator('#post-sensitive').is_checked()

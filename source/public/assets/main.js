@@ -403,7 +403,7 @@ function reportCard(r) {
     const sensitive = r.sensitiveContent === true && galleryItems(r).length > 0;
     const concealed = sensitive && !revealedSensitivePosts.has(r.id);
     const badge = sensitive && !concealed ? `<div class="sensitive-showing"><span>${icons.eyeOff} Contenido sensible</span><button type="button" data-action="hide-sensitive" data-id="${esc(r.id)}">Ocultar contenido</button></div>` : '';
-    return `<article class="report-card"><div class="report-top">${tiktokAuthor(r)}<div class="report-meta"><time>${formatDate(r.createdAt)}</time>${updateCounter(r)}</div></div>${badge}<h2>${esc(r.title)}</h2><p class="report-copy">${esc(r.description)}</p>${concealed ? sensitiveGate(r.id) : evidenceMarkup(r)}<div class="reactions-bar" data-id="${esc(r.id)}" aria-label="Reacciones a la publicación">${reactionKinds.map(([kind, emoji, label]) => `<button class="react-button ${currentMyReaction(r.id) === kind ? 'react-selected' : ''}" type="button" data-action="react" data-id="${esc(r.id)}" data-kind="${kind}" aria-label="${label}" aria-pressed="${currentMyReaction(r.id) === kind}"><span class="react-emoji" aria-hidden="true">${emoji}</span><span class="react-label">${label}</span><span class="react-number">${currentReactionCounts(r.id)[kind]}</span></button>`).join('')}</div><div class="report-bottom"><button class="text-action ${state.updatesPost === r.id ? 'action-active' : ''}" type="button" data-action="updates" data-id="${esc(r.id)}" aria-expanded="${state.updatesPost === r.id}" aria-controls="updates-${esc(r.id)}">${icons.clock} Actualizaciones</button><button class="text-action ${state.thread === r.id ? 'action-active' : ''}" type="button" data-action="thread" data-id="${esc(r.id)}" aria-expanded="${state.thread === r.id}" aria-controls="comments-${esc(r.id)}">${icons.reply} Comentarios${firebaseEnabled ? '' : ` · ${countR(r.id)}`}</button><button class="text-action" type="button" data-action="share" data-id="${esc(r.id)}">${icons.share} Compartir</button><button class="text-action subtle-action" type="button" data-action="flag" data-id="${esc(r.id)}" aria-label="Reportar esta publicación">${icons.flag} Reportar</button></div>${state.updatesPost === r.id ? updatesInline(r.id) : ''}${state.thread === r.id ? threadInline(r.id) : ''}</article>`;
+    return `<article class="report-card" data-open-updates="${esc(r.id)}"><div class="report-top">${tiktokAuthor(r)}<div class="report-meta"><time>${formatDate(r.createdAt)}</time>${updateCounter(r)}</div></div>${badge}<h2><button class="report-title-link" type="button" data-action="updates" data-id="${esc(r.id)}">${esc(r.title)}</button></h2><p class="report-copy">${esc(r.description)}</p>${concealed ? sensitiveGate(r.id) : evidenceMarkup(r)}<div class="reactions-bar" data-id="${esc(r.id)}" aria-label="Reacciones a la publicación">${reactionKinds.map(([kind, emoji, label]) => `<button class="react-button ${currentMyReaction(r.id) === kind ? 'react-selected' : ''}" type="button" data-action="react" data-id="${esc(r.id)}" data-kind="${kind}" aria-label="${label}" aria-pressed="${currentMyReaction(r.id) === kind}"><span class="react-emoji" aria-hidden="true">${emoji}</span><span class="react-label">${label}</span><span class="react-number">${currentReactionCounts(r.id)[kind]}</span></button>`).join('')}</div><div class="report-bottom"><button class="text-action ${state.thread === r.id ? 'action-active' : ''}" type="button" data-action="thread" data-id="${esc(r.id)}" aria-expanded="${state.thread === r.id}" aria-controls="comments-${esc(r.id)}">${icons.reply} Comentarios${firebaseEnabled ? '' : ` · ${countR(r.id)}`}</button><button class="text-action" type="button" data-action="share" data-id="${esc(r.id)}">${icons.share} Compartir</button><button class="text-action subtle-action" type="button" data-action="flag" data-id="${esc(r.id)}" aria-label="Reportar esta publicación">${icons.flag} Reportar</button></div>${state.thread === r.id ? threadInline(r.id) : ''}</article>`;
 }
 function cantonView(slug) { const c = cantonMap[slug]; if (!c)
     return homeView(); state.canton = slug; const posts = allReports().filter(r => r.canton === slug && ['approved', 'pending'].includes(r.status)).sort((a, b) => state.sort === 'antiguas' ? a.createdAt - b.createdAt : b.createdAt - a.createdAt); return `<main class="main-area detail-area"><button type="button" class="back-link" data-action="nav" data-page="inicio">${icons.back} Todos los cantones</button><div class="canton-banner">${photo(c)}<div class="banner-overlay"></div><div class="banner-content"><span>CANTÓN</span><h1>${esc(c.name)}</h1><div class="banner-meta">${count(slug)} ${count(slug) === 1 ? 'funa publicada' : 'funas publicadas'}</div></div></div><div class="feed-toolbar"><h2>Funas</h2><div class="feed-actions"><label class="sort-control">Ordenar <select id="sort-posts" aria-label="Orden de las funas"><option value="recientes" ${state.sort === 'recientes' ? 'selected' : ''}>Recientes</option><option value="antiguas" ${state.sort === 'antiguas' ? 'selected' : ''}>Antiguas</option></select></label><button class="button-primary" type="button" data-action="compose">${icons.plus} Añadir funa</button></div></div><section class="feed" aria-label="Funas del cantón">${posts.length ? posts.map(reportCard).join('') : emptyView()}</section>${firebaseEnabled && hasMoreReports() ? '<div class="load-more-row"><button type="button" class="button-primary" data-action="load-more">Cargar más funas ${icons.arrow}</button></div>' : ''}</main>`; }
@@ -420,7 +420,7 @@ function singleView(id) {
             if (result && !state.remoteReports.some(p => p.id === result.id))
                 state.remoteReports.push(result);
             finishedPostLookups.add(id);
-            if (segs()[0] === 'funa' && segs()[1] === id)
+            if (['funa', 'actualizaciones'].includes(segs()[0]) && segs()[1] === id)
                 render();
         }).catch(err => { finishedPostLookups.add(id); console.warn('No se encontró la publicación:', err); if (segs()[1] === id) {
             toast('No se pudo cargar la funa. Comprueba los permisos.', 'bad');
@@ -522,7 +522,7 @@ function captureUpdateDraft() {
 }
 function resetUpdateFiles() { updatePhotoPreviews.forEach(url => URL.revokeObjectURL(url)); updatePhotoPreviews = []; updateFiles = []; }
 function knownUpdateCount(id) { return firebaseEnabled ? updateCounts.get(id)?.count : allUpdatesFor(id).length; }
-function updateCounter(r) { const n = knownUpdateCount(r.id); return `<button class="update-counter ${n ? 'has-updates' : ''}" type="button" data-action="updates" data-id="${esc(r.id)}" aria-label="Ver actualizaciones de esta funa" aria-expanded="${state.updatesPost === r.id}" aria-controls="updates-${esc(r.id)}">${icons.clock}<span data-update-count="${esc(r.id)}">${n ?? (updateCountFailures.has(r.id) ? '—' : '…')}</span><span>novedades</span></button>`; }
+function updateCounter(r) { const n = knownUpdateCount(r.id); return `<button class="update-counter ${n ? 'has-updates' : ''}" type="button" data-action="updates" data-id="${esc(r.id)}" aria-label="Ver actualizaciones de esta funa" title="Ver actualizaciones"><span data-update-count="${esc(r.id)}">${n ?? (updateCountFailures.has(r.id) ? '—' : '…')}</span></button>`; }
 function syncUpdateCounts(id) {
     const n = knownUpdateCount(id);
     if (n === undefined)
@@ -566,13 +566,13 @@ function watchUpdateCounts() {
                 updateCountPending.delete(id);
         }
     };
-    const nodes = [...app.querySelectorAll('[data-update-count]')];
+    const nodes = [...app.querySelectorAll('[data-update-count],[data-update-total]')];
     if (typeof IntersectionObserver === 'undefined')
-        nodes.forEach(el => void load(el.dataset.updateCount || ''));
+        nodes.forEach(el => void load(el.dataset.updateCount || el.dataset.updateTotal || ''));
     else {
         updateCountObserver = new IntersectionObserver(entries => entries.forEach(entry => { if (entry.isIntersecting) {
             updateCountObserver?.unobserve(entry.target);
-            void load(entry.target.dataset.updateCount || '');
+            void load(entry.target.dataset.updateCount || entry.target.dataset.updateTotal || '');
         } }), { rootMargin: '120px' });
         nodes.forEach(el => updateCountObserver.observe(el));
     }
@@ -580,31 +580,44 @@ function watchUpdateCounts() {
 function updateTimeline(r) {
     const items = allUpdatesFor(r.id);
     if (updatesStatus === 'loading' && !items.length)
-        return '<p class="updates-empty" role="status">Cargando actualizaciones…</p>';
+        return '<div class="empty-state" role="status"><span class="empty-line"></span><h2>Cargando actualizaciones…</h2></div>';
     if (updatesStatus === 'error')
-        return `<div class="updates-empty" role="status"><p>No se pudieron cargar las actualizaciones.</p><button type="button" class="comment-link" data-action="retry-updates" data-id="${esc(r.id)}">Reintentar</button></div>`;
-    return items.length ? items.map(u => `<article class="update-item update-message"><span class="update-avatar">${icons.user}</span><div class="update-message-body"><div class="update-message-heading"><strong>Autor anónimo</strong><span class="update-badge">AUTOR</span><time>${formatDateTime(u.createdAt)}</time></div>${u.text ? `<p>${esc(u.text)}</p>` : ''}${r.sensitiveContent === true && galleryItems(r, u.id).length && !revealedSensitivePosts.has(r.id) ? sensitiveGate(r.id) : evidenceMarkup(r, u.id)}</div></article>`).join('') : '<p class="updates-empty">Las novedades de esta publicación aparecerán aquí.</p>';
+        return `<div class="empty-state" role="status"><h2>No se pudieron cargar las actualizaciones.</h2><button type="button" class="button-primary" data-action="retry-updates" data-id="${esc(r.id)}">Reintentar</button></div>`;
+    return items.length ? items.map(u => `<article class="report-card update-card update-message" data-update-id="${esc(u.id)}"><div class="report-top">${tiktokAuthor(r)}<div class="report-meta"><span class="update-badge">ACTUALIZACIÓN</span><time>${formatDateTime(u.createdAt)}</time></div></div>${u.text ? `<p class="report-copy">${esc(u.text)}</p>` : ''}${r.sensitiveContent === true && galleryItems(r, u.id).length && !revealedSensitivePosts.has(r.id) ? sensitiveGate(r.id) : evidenceMarkup(r, u.id)}</article>`).join('') + (items.length >= 100 ? '<p class="updates-window-note">Se muestran las 100 actualizaciones más recientes.</p>' : '') : '<div class="empty-state"><span class="empty-line"></span><h2>Todavía no hay actualizaciones de esta funa.</h2></div>';
 }
 function selectedUpdatePhotos() { return updateFiles.map((file, i) => `<div class="update-selected-photo"><img src="${esc(updatePhotoPreviews[i])}" alt="Vista previa de ${esc(file.name)}"><span>${esc(file.name)}</span><button type="button" data-action="remove-update-image" data-index="${i}" aria-label="Quitar foto ${i + 1}" ${updateSendingPost === state.updatesPost ? 'disabled' : ''}>${icons.close}</button></div>`).join(''); }
-function updatesInline(id) {
+function updatesComposer(r) {
+    const id = r.id, sending = updateSendingPost === id;
+    if (state.user?.uid !== r.authorUid)
+        return '';
+    return `<section class="report-card updates-compose-card" aria-label="Añadir actualización"><form id="update-form" class="reply-form update-composer" ${sending ? 'data-sending="1"' : ''}><label for="update-text">Añadir actualización</label><textarea id="update-text" data-report="${esc(id)}" name="update" rows="3" minlength="${updateFiles.length ? 0 : 10}" maxlength="1000" ${updateFiles.length ? '' : 'required'} placeholder="${updateFiles.length ? 'Descripción de las fotos (opcional)' : '¿Qué ha pasado desde la publicación?'}" ${sending ? 'disabled' : ''}>${esc(updateDraftText)}</textarea><div id="selected-update-images" class="selected-update-photos">${selectedUpdatePhotos()}</div><div class="update-composer-bottom"><button type="button" class="update-attach" data-action="attach-update" ${sending ? 'disabled' : ''}>${icons.image} Añadir fotos <span data-update-file-count>${updateFiles.length}/4</span></button><input id="update-images" type="file" accept="image/png,image/jpeg,image/webp" multiple class="visually-hidden" aria-label="Fotos de la actualización" ${sending ? 'disabled' : ''}><button class="button-primary" type="submit" ${sending ? 'disabled' : ''}>${sending ? 'Publicando…' : 'Publicar actualización'} ${icons.arrow}</button></div><small class="update-file-help">Hasta 4 fotos JPG, PNG o WebP · 5 MB por foto · solo el autor puede publicar novedades.</small></form></section>`;
+}
+function ensureUpdatesRoute(id) {
+    if (state.updatesPost === id)
+        return;
+    captureUpdateDraft();
+    stopUpdates();
+    state.updatesPost = id;
+    if (updateDraftReportId !== id) {
+        resetUpdateFiles();
+        updateDraftText = '';
+        updateDraftReportId = id;
+    }
+    subscribeUpdates(id);
+}
+function updatesView(id) {
     const r = allReports().find(r => r.id === id && r.status === 'approved');
     if (!r)
-        return '';
-    const mine = state.user?.uid === r.authorUid, sending = updateSendingPost === id;
-    return `<section class="inline-updates updates-panel" id="updates-${esc(id)}" aria-label="Actualizaciones de la funa" tabindex="-1"><div class="inline-update-heading"><div><span class="updates-kicker">SEGUIMIENTO DE ESTA FUNA</span><h3>Actualizaciones <span data-update-total="${esc(id)}">${knownUpdateCount(id) ?? '…'}</span></h3></div><button type="button" class="inline-close" data-action="updates" data-id="${esc(id)}" aria-label="Cerrar actualizaciones">${icons.close}</button></div><div class="update-timeline" aria-live="polite" aria-relevant="additions text">${updateTimeline(r)}</div>${allUpdatesFor(id).length >= 100 ? '<p class="updates-window-note">Se muestran las 100 actualizaciones más recientes.</p>' : ''}${mine ? `<form id="update-form" class="reply-form update-composer" ${sending ? 'data-sending="1"' : ''}><label for="update-text">Añadir actualización</label><textarea id="update-text" data-report="${esc(id)}" name="update" rows="3" minlength="${updateFiles.length ? 0 : 10}" maxlength="1000" ${updateFiles.length ? '' : 'required'} placeholder="${updateFiles.length ? 'Descripción de las fotos (opcional)' : '¿Qué ha pasado desde la publicación?'}" ${sending ? 'disabled' : ''}>${esc(updateDraftText)}</textarea><div id="selected-update-images" class="selected-update-photos">${selectedUpdatePhotos()}</div><div class="update-composer-bottom"><button type="button" class="update-attach" data-action="attach-update" ${sending ? 'disabled' : ''}>${icons.image} Añadir fotos <span data-update-file-count>${updateFiles.length}/4</span></button><input id="update-images" type="file" accept="image/png,image/jpeg,image/webp" multiple class="visually-hidden" aria-label="Fotos de la actualización" ${sending ? 'disabled' : ''}><button class="button-primary" type="submit" ${sending ? 'disabled' : ''}>${sending ? 'Publicando…' : 'Publicar actualización'} ${icons.arrow}</button></div><small class="update-file-help">Hasta 4 fotos JPG, PNG o WebP · 5 MB por foto · solo el autor puede publicar novedades.</small></form>` : '<p class="updates-reader-note">Novedades publicadas por el autor de esta funa.</p>'}</section>`;
+        return singleView(id);
+    return `<main class="main-area detail-area updates-page"><button type="button" class="back-link" data-action="nav" data-page="funa/${esc(id)}">${icons.back} Volver a la funa</button><div class="section-head"><div><span class="section-line"></span><h1>Actualizaciones</h1><p class="updates-page-context">${esc(r.title)}</p></div><span class="updates-page-count"><span data-update-total="${esc(id)}">${knownUpdateCount(id) ?? '…'}</span> novedades</span></div>${updatesComposer(r)}<section id="updates-feed" class="feed updates-feed" aria-label="Actualizaciones de esta funa" aria-live="polite">${updateTimeline(r)}</section></main>`;
 }
-function renderInlineUpdates() {
-    if (!state.updatesPost)
+function renderUpdatesFeed() {
+    if (!state.updatesPost || segs()[0] !== 'actualizaciones')
         return;
-    const r = allReports().find(r => r.id === state.updatesPost);
-    if (!r)
+    const r = allReports().find(r => r.id === state.updatesPost && r.status === 'approved'), feed = app.querySelector('#updates-feed');
+    if (!r || !feed)
         return;
-    const section = document.getElementById('updates-' + r.id), timeline = section?.querySelector('.update-timeline');
-    if (!timeline) {
-        render();
-        return;
-    }
-    timeline.innerHTML = updateTimeline(r);
+    feed.innerHTML = updateTimeline(r);
     syncUpdateCounts(r.id);
     hydrateEvidence();
 }
@@ -638,38 +651,16 @@ function subscribeUpdates(id) {
                 updateCounts.delete(id);
                 watchUpdateCounts();
             }
-            renderInlineUpdates();
+            renderUpdatesFeed();
         }, () => { if (state.updatesPost === id) {
             updatesStatus = 'error';
-            renderInlineUpdates();
+            renderUpdatesFeed();
         } });
 }
-function toggleUpdates(id) {
-    if (updateSendingPost) {
-        toast('Espera a que termine la actualización.');
+function openUpdates(id) {
+    if (!id)
         return;
-    }
-    captureUpdateDraft();
-    const next = state.updatesPost === id ? null : id;
-    stopUpdates();
-    stopReplies();
-    stopCommentReactionWatch();
-    state.thread = null;
-    state.remoteReplies = [];
-    state.replyTarget = null;
-    state.editReplyId = null;
-    state.updatesPost = next;
-    if (next) {
-        if (updateDraftReportId !== next) {
-            resetUpdateFiles();
-            updateDraftText = '';
-            updateDraftReportId = next;
-        }
-        subscribeUpdates(next);
-    }
-    render();
-    if (next)
-        document.getElementById('updates-' + next)?.scrollIntoView({ behavior: state.prefs.animations ? 'smooth' : 'instant', block: 'nearest' });
+    navigate('actualizaciones/' + id);
 }
 function shareURL(id) { return location.origin + location.pathname + '#/funa/' + encodeURIComponent(id); }
 function shareDialog() {
@@ -716,7 +707,7 @@ function guestDialog() { return `<div class="modal-overlay" data-action="close-o
 function imageDialog() {
     const movie = state.previewMediaType.startsWith('video/'), item = previewItems[previewIndex];
     const body = previewLoading ? '<div class="viewer-loading" role="status">Cargando evidencia…</div>' : movie ? videoPlayerMarkup(state.previewImage) : `<img src="${esc(state.previewImage)}" alt="${esc(item?.name || 'Evidencia ampliada')}">`;
-    return `<div class="modal-overlay" data-action="close-overlay"><section class="photo-panel gallery-viewer" role="dialog" aria-modal="true" aria-label="Evidencia ampliada"><div class="viewer-header"><span>${previewItems.length ? `${previewIndex + 1} / ${previewItems.length}` : 'Evidencia'}</span><strong>${esc(item?.name || 'Archivo adjunto')}</strong><button class="icon-control" data-action="close" aria-label="Cerrar">${icons.close}</button></div>${body}<div class="viewer-footer">${previewItems.length > 1 ? `<button type="button" data-action="viewer-prev" ${previewIndex === 0 ? 'disabled' : ''} aria-label="Evidencia anterior">‹ Anterior</button><button type="button" data-action="viewer-next" ${previewIndex === previewItems.length - 1 ? 'disabled' : ''} aria-label="Evidencia siguiente">Siguiente ›</button>` : ''}${!previewLoading && /^(blob:|data:(image|video)\/)/.test(state.previewImage) ? `<a href="${esc(state.previewImage)}" download="${esc(safeMediaFilename(item?.name || 'evidencia', state.previewMediaType))}" target="_blank" rel="noopener noreferrer">Descargar original</a>` : ''}</div></section></div>`;
+    return `<div class="modal-overlay media-overlay" data-action="close-overlay"><section class="photo-panel gallery-viewer" role="dialog" aria-modal="true" aria-label="Evidencia ampliada"><div class="viewer-header"><span>${previewItems.length ? `${previewIndex + 1} / ${previewItems.length}` : 'Evidencia'}</span><strong>${esc(item?.name || 'Archivo adjunto')}</strong><button class="icon-control" data-action="close" aria-label="Cerrar">${icons.close}</button></div><div class="viewer-stage">${body}</div><div class="viewer-footer">${previewItems.length > 1 ? `<button type="button" data-action="viewer-prev" ${previewIndex === 0 ? 'disabled' : ''} aria-label="Evidencia anterior">‹ Anterior</button><button type="button" data-action="viewer-next" ${previewIndex === previewItems.length - 1 ? 'disabled' : ''} aria-label="Evidencia siguiente">Siguiente ›</button>` : ''}${!previewLoading && /^(blob:|data:(image|video)\/)/.test(state.previewImage) ? `<a href="${esc(state.previewImage)}" download="${esc(safeMediaFilename(item?.name || 'evidencia', state.previewMediaType))}" target="_blank" rel="noopener noreferrer">Descargar original</a>` : ''}</div></section></div>`;
 }
 function tikTokDialog() { return `<div class="modal-overlay" data-action="close-overlay"><section class="modal-panel compact" role="dialog" aria-modal="true" aria-label="Añadir cuenta de TikTok"><div class="modal-header"><h2>Añadir TikTok</h2><button type="button" class="icon-control" data-action="close" aria-label="Cerrar">${icons.close}</button></div><form id="tiktok-form" class="form-stack"><div class="field"><label for="tt-username">Nombre de usuario</label><p class="identity-notice">Al vincular TikTok, tu @usuario aparecerá públicamente como autor de todas tus funas. Es un enlace declarado por ti; no es una verificación oficial.</p><div class="prefix-input"><span>@</span><input id="tt-username" name="username" placeholder="usuario" autocomplete="off" minlength="2" maxlength="24" required></div></div><button class="button-primary fullwidth" type="submit">Añadir cuenta ${icons.arrow}</button></form></section></div>`; }
 function flagDialog() { const report = allReports().find(r => r.id === state.flagId); return `<div class="modal-overlay" data-action="close-overlay"><section class="modal-panel compact" role="dialog" aria-modal="true" aria-label="Reportar publicación"><div class="modal-header"><h2>Reportar publicación</h2><button type="button" class="icon-control" data-action="close" aria-label="Cerrar">${icons.close}</button></div><div class="flag-context"><span>${icons.flag}</span><div><strong>${esc(report?.title || 'Publicación')}</strong><p>Elige el motivo para que moderación pueda revisarlo.</p></div></div><form class="form-stack" id="flag-form"><div class="field"><label for="flag-reason">Motivo</label><select id="flag-reason" name="reason"><option>Acoso</option><option>Datos personales</option><option>Imágenes sin consentimiento</option><option>Otro</option></select></div><div class="field" id="flag-extra-wrap" hidden><label for="flag-details">Describe el motivo</label><textarea id="flag-details" name="details" minlength="10" maxlength="500" rows="4" placeholder="Explica por qué reportas esta funa..."></textarea></div><button class="button-primary fullwidth" type="submit">Enviar reporte</button></form></section></div>`; }
@@ -746,7 +737,12 @@ function render() { captureUpdateDraft(); lastRenderedHash = location.hash; if (
     app.innerHTML = loginView();
     renderModal();
     return;
-} const replyDraft = app.querySelector('#reply-text')?.value; const editDraft = app.querySelector('#edit-reply-text')?.value; const activeId = document.activeElement?.id; const route = segs(), p = route[0] || 'inicio'; app.innerHTML = header(p === 'canton' || p === 'funa' ? 'inicio' : p) + (p === 'canton' ? cantonView(route[1] || 'machala') : p === 'tiktok' ? tiktokView() : p === 'ajustes' ? settingsView() : p === 'mis-funas' ? ownView() : p === 'funa' ? singleView(route[1] || '') : homeView()) + footer(); applyPrefs(); renderModal(); if (replyDraft !== undefined) {
+} const replyDraft = app.querySelector('#reply-text')?.value; const editDraft = app.querySelector('#edit-reply-text')?.value; const activeId = document.activeElement?.id; const route = segs(), p = route[0] || 'inicio'; if (p === 'actualizaciones')
+    ensureUpdatesRoute(route[1] || '');
+else if (state.updatesPost) {
+    stopUpdates();
+    state.updatesPost = null;
+} app.innerHTML = header(['canton', 'funa', 'actualizaciones'].includes(p) ? 'inicio' : p) + (p === 'actualizaciones' ? updatesView(route[1] || '') : p === 'canton' ? cantonView(route[1] || 'machala') : p === 'tiktok' ? tiktokView() : p === 'ajustes' ? settingsView() : p === 'mis-funas' ? ownView() : p === 'funa' ? singleView(route[1] || '') : homeView()) + footer(); applyPrefs(); renderModal(); if (replyDraft !== undefined) {
     const field = app.querySelector('#reply-text');
     if (field) {
         field.value = replyDraft;
@@ -1114,7 +1110,7 @@ async function sendUpdate(form) {
         }
         if (state.updatesPost === report.id) {
             if (!firebaseEnabled)
-                renderInlineUpdates();
+                renderUpdatesFeed();
             else {
                 updateCounts.delete(report.id);
                 watchUpdateCounts();
@@ -1208,9 +1204,14 @@ catch (e) {
     toast(e?.message || 'No se pudo eliminar la cuenta de TikTok.', 'bad');
 } }
 document.addEventListener('click', async (e) => {
-    const el = e.target.closest('[data-action]');
-    if (!el)
+    const target = e.target;
+    const el = target.closest('[data-action]');
+    if (!el) {
+        const card = target.closest('[data-open-updates]');
+        if (card && !target.closest('button,a,input,textarea,select,label,form,.media-carousel,.inline-comments,.reactions-bar') && !window.getSelection()?.toString())
+            openUpdates(card.dataset.openUpdates || '');
         return;
+    }
     const a = el.dataset.action || '';
     if (a === 'gallery-open') {
         if (modal.querySelector('form[data-sending="1"]') || updateSendingPost)
@@ -1358,10 +1359,10 @@ document.addEventListener('click', async (e) => {
     else if (a === 'delete-tiktok')
         await removeTikTok();
     else if (a === 'updates')
-        toggleUpdates(el.dataset.id || '');
+        openUpdates(el.dataset.id || '');
     else if (a === 'retry-updates') {
         subscribeUpdates(el.dataset.id || '');
-        renderInlineUpdates();
+        renderUpdatesFeed();
     }
     else if (a === 'attach-update')
         app.querySelector('#update-images')?.click();
@@ -1497,7 +1498,7 @@ document.addEventListener('keydown', e => { if (state.dialogue === 'image' && !(
     else if (state.dialogue)
         close();
     else if (state.updatesPost)
-        toggleUpdates(state.updatesPost);
+        navigate('funa/' + state.updatesPost);
     else if (state.thread)
         toggleInlineThread(state.thread);
     return;
@@ -1508,18 +1509,19 @@ document.addEventListener('keydown', e => { if (state.dialogue === 'image' && !(
         form.requestSubmit();
     }
 } });
-window.addEventListener('popstate', () => { if (state.menu) {
+window.addEventListener('popstate', () => { if (location.hash !== lastRenderedHash) {
+    state.menu = false;
+    state.dialogue = null;
+    requestRouteRender();
+    return;
+} if (state.menu) {
     state.menu = false;
     render();
 }
 else if (state.dialogue)
     close();
-else if (state.updatesPost)
-    toggleUpdates(state.updatesPost);
 else if (state.thread)
-    toggleInlineThread(state.thread);
-else if (location.hash !== lastRenderedHash)
-    requestRouteRender(); });
+    toggleInlineThread(state.thread); });
 window.addEventListener('hashchange', () => { if (location.hash === lastRenderedHash)
     return; state.menu = false; state.search = ''; requestRouteRender(); });
 setInterval(() => { if (document.visibilityState === 'visible' && state.user && !state.dialogue)

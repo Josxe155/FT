@@ -161,3 +161,26 @@ Seguimiento integrado y acciones de publicaciones
   No se modificó ni eliminó contenido de usuarios reales.
 - Dos fotografías de cantones de proveedores externos respondieron 503, como
   en la revisión anterior; el fondo de respaldo sigue disponible.
+
+Corrección de navegación y centrado completo (16/11/2026)
+- El botón inferior de Actualizaciones se elimina. El contador es un número
+  junto al autor y la fecha. Tocar la funa, su título o ese número abre una
+  página propia #/actualizaciones/{id}, con tarjetas de novedades como funas.
+- PASS nueva vista 320/390/768/1440 y 844x390 horizontal: no modal ni acordeón,
+  solo novedades de esa funa, fotos con/sin texto, lector sin formulario,
+  vuelta a la publicación, historial y recarga directa.
+- PASS centrado del marco completo dentro de la tarjeta y del visor en ambos
+  ejes de pantalla, con fotos panorámicas, retratos y vídeos. No solo el icono.
+- PASS reproducción y controles 320/390/1440, comentarios, borradores remotos,
+  adjuntos y contenido sensible 320/390/768/1440.
+- PASS TypeScript y compilación. Versionadas las referencias HTML de CSS y
+  entrada para renovar la versión en el navegador.
+- Deploy Hosting completado. Sin cambios de reglas ni de facturación.
+- PASS producción: sin botón inferior, tocar publicación abre su ruta de
+  novedades, cuatro fotos sin texto, contador, lector con otra cuenta,
+  recarga directa y medición del visor centrado. Sin FirebaseError de permisos.
+- Prueba retirada: solo la publicación ficticia, sus adjuntos/comentarios y
+  las dos identidades anónimas de QA; contenido real conservado.
+- PASS repetición de reglas en emuladores Firestore/RTDB, incluyendo contador,
+  novedades, límites de fotos, autoría y acceso sin sesión denegado. La
+  repetición se completó al resolverse el límite temporal de aprobación.
