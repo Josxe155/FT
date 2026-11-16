@@ -59,3 +59,11 @@ Compartir muestra el enlace directo con copia y opciones nativas; Reportar inclu
 ## Contador de comentarios
 
 Cada funa muestra un contador junto a Comentarios, incluidas las respuestas aprobadas. La agregación de Firestore usa `status == approved`, sin el límite de 200 elementos del listado. El hilo abierto sincroniza el contador con las notificaciones confirmadas del servidor; publicar y eliminar fuerzan la revisión del total. Las tarjetas visibles lo revisan periódicamente. La caché y las solicitudes pendientes se limpian al cambiar de sesión; los fallos de carga no se presentan como cero. No se amplían los permisos de las reglas.
+
+## Seis reacciones, burbuja y usuarios privados
+
+El total de novedades está a la derecha de Volver a la funa, en la misma fila. El total de comentarios se dibuja dentro de una burbuja de chat. Las seis reacciones se distribuyen en una fila en escritorio y en dos filas en móvil; los comentarios mantienen un formato compacto y accesible.
+
+Los resúmenes anteriores de tres reacciones siguen leyéndose con cero para los campos nuevos ausentes. Las transacciones escriben seis totales y las reglas verifican cada variación junto al voto privado de su propietario. La limpieza, tanto manual como el ejemplo de mantenimiento desactivado, conserva publicaciones con cualquiera de las seis reacciones, aunque los metadatos antiguos no incluyan los campos nuevos.
+
+Usuarios es una sección exclusiva del dashboard. Firebase Auth aporta los nombres de Google y userPrefs aporta los apodos de invitados. La consulta paginada de Auth y la lectura por lotes de los apodos se hacen con OAuth temporal de la cuenta propietaria; el token y los resultados permanecen en memoria y se eliminan al salir. La autorización de este directorio no ejecuta limpieza ni cambia datos. Las reglas de lectura pública no se amplían. Las cuentas sin apodo guardado se identifican como Invitado sin apodo, sin inventar un nombre.

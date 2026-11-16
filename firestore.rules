@@ -34,14 +34,18 @@ service cloud.firestore {
     function validReaction() {
       return signed() && request.resource.data.keys().hasOnly(['kind','updatedAt'])
         && request.resource.data.keys().hasAll(['kind','updatedAt'])
-        && request.resource.data.kind in ['like','wow','concern','none']
+        && request.resource.data.kind in ['like','wow','concern','angry','sad','love','none']
         && request.resource.data.updatedAt == request.time;
     }
     function validTotals(counts) {
-      return counts.keys().hasOnly(['like','wow','concern','updatedAt'])
+      return counts.keys().hasOnly(['like','wow','concern','angry','sad','love','updatedAt'])
         && counts.keys().hasAll(['like','wow','concern','updatedAt'])
         && counts.like is int && counts.wow is int && counts.concern is int
         && counts.like >= 0 && counts.wow >= 0 && counts.concern >= 0
+        // Compatibilidad con resúmenes anteriores: reacciones nuevas ausentes valen cero.
+        && counts.get('angry', 0) is int && counts.get('angry', 0) >= 0
+        && counts.get('sad', 0) is int && counts.get('sad', 0) >= 0
+        && counts.get('love', 0) is int && counts.get('love', 0) >= 0
         && counts.updatedAt == request.time;
     }
     function oldPostVote(reportId, uid) {
@@ -55,7 +59,10 @@ service cloud.firestore {
       return validTotals(after)
         && after.like == before.like + (afterKind == 'like' ? 1 : 0) - (beforeKind == 'like' ? 1 : 0)
         && after.wow == before.wow + (afterKind == 'wow' ? 1 : 0) - (beforeKind == 'wow' ? 1 : 0)
-        && after.concern == before.concern + (afterKind == 'concern' ? 1 : 0) - (beforeKind == 'concern' ? 1 : 0);
+        && after.concern == before.concern + (afterKind == 'concern' ? 1 : 0) - (beforeKind == 'concern' ? 1 : 0)
+        && after.get('angry', 0) == before.get('angry', 0) + (afterKind == 'angry' ? 1 : 0) - (beforeKind == 'angry' ? 1 : 0)
+        && after.get('sad', 0) == before.get('sad', 0) + (afterKind == 'sad' ? 1 : 0) - (beforeKind == 'sad' ? 1 : 0)
+        && after.get('love', 0) == before.get('love', 0) + (afterKind == 'love' ? 1 : 0) - (beforeKind == 'love' ? 1 : 0);
     }
     function oldCommentVote(reportId, replyId, uid) {
       return exists(/databases/$(database)/documents/reports/$(reportId)/replies/$(replyId)/reactions/$(uid))
@@ -68,7 +75,10 @@ service cloud.firestore {
       return validTotals(after)
         && after.like == before.like + (afterKind == 'like' ? 1 : 0) - (beforeKind == 'like' ? 1 : 0)
         && after.wow == before.wow + (afterKind == 'wow' ? 1 : 0) - (beforeKind == 'wow' ? 1 : 0)
-        && after.concern == before.concern + (afterKind == 'concern' ? 1 : 0) - (beforeKind == 'concern' ? 1 : 0);
+        && after.concern == before.concern + (afterKind == 'concern' ? 1 : 0) - (beforeKind == 'concern' ? 1 : 0)
+        && after.get('angry', 0) == before.get('angry', 0) + (afterKind == 'angry' ? 1 : 0) - (beforeKind == 'angry' ? 1 : 0)
+        && after.get('sad', 0) == before.get('sad', 0) + (afterKind == 'sad' ? 1 : 0) - (beforeKind == 'sad' ? 1 : 0)
+        && after.get('love', 0) == before.get('love', 0) + (afterKind == 'love' ? 1 : 0) - (beforeKind == 'love' ? 1 : 0);
     }
     // Evidencias: metadatos acotados, sin bytes ni URLs arbitrarias en Firestore.
     function validMediaItem(m, uid, slot) {

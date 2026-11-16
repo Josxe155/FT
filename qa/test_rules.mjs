@@ -2,7 +2,9 @@ import {readFileSync} from 'node:fs';
 import {initializeTestEnvironment,assertSucceeds,assertFails} from '@firebase/rules-unit-testing';
 import {doc,setDoc,getDoc,updateDoc,collection,query,where,orderBy,limit,getDocs,getCountFromServer,serverTimestamp as fsTime} from 'firebase/firestore';
 import {ref,set,get,remove,serverTimestamp as rtTime} from 'firebase/database';
-const env=await initializeTestEnvironment({projectId:'demo-funados-security',firestore:{host:'127.0.0.1',port:8086,rules:readFileSync('firestore.rules','utf8')},database:{host:'127.0.0.1',port:9000,rules:readFileSync('database.rules.json','utf8')}});
+// Identidad ficticia solo en las reglas cargadas dentro del emulador de QA.
+const qaRules=path=>readFileSync(path,'utf8').replace(/'[^'\n]*@[^'\n]*'/g,"'admin@example.test'");
+const env=await initializeTestEnvironment({projectId:'demo-funados-security',firestore:{host:'127.0.0.1',port:8086,rules:qaRules('firestore.rules')},database:{host:'127.0.0.1',port:9000,rules:qaRules('database.rules.json')}});
 const a=env.authenticatedContext('alice'),b=env.authenticatedContext('bob'),anon=env.unauthenticatedContext();
 const report={id:'test-report',canton:'machala',title:'Reporte de prueba seguro',description:'Descripción técnica de una prueba aislada de permisos.',category:'Funa',status:'approved',authorUid:'alice',authorAlias:'Anónimo',createdAt:fsTime(),images:[],media:[],sensitiveContent:false};
 try{
@@ -32,6 +34,10 @@ try{
  await assertFails(setDoc(doc(a.firestore(),'profiles/alice'),{uid:'alice',alias:'Anónimo',tiktokUsername:'valid_name',tiktokVerified:true,updatedAt:fsTime()}));
  await assertSucceeds(setDoc(doc(a.firestore(),'profiles/alice'),{uid:'alice',alias:'Anónimo',tiktokUsername:'valid_name',tiktokVerified:false,updatedAt:fsTime()}));
  await assertFails(updateDoc(doc(a.firestore(),'profiles/alice'),{tiktokUsername:'bad link /'}));
+ await assertSucceeds(setDoc(doc(a.firestore(),'userPrefs/alice'),{uid:'alice',alias:'Apodo privado',updatedAt:fsTime()}));
+ await assertFails(getDoc(doc(b.firestore(),'userPrefs/alice')));
+ await assertFails(getDoc(doc(anon.firestore(),'userPrefs/alice')));
+ console.log('PASS privacidad: apodos no legibles por otras cuentas ni sin sesión');
  await assertFails(setDoc(doc(b.firestore(),'profiles/alice'),{uid:'alice',alias:'Anónimo',tiktokUsername:'valid_name',tiktokVerified:false,updatedAt:fsTime()}));
  const photo={id:'0',ownerUid:'alice',name:'photo.png',type:'image/png',size:3,chunks:1};
  await assertSucceeds(setDoc(doc(a.firestore(),'reports/test-report/updates/photos'),{reportId:'test-report',text:'Actualización válida con fotografías.',authorUid:'alice',createdAt:fsTime(),media:Array.from({length:4},(_,i)=>({...photo,id:String(i)}))}));
@@ -69,8 +75,8 @@ try{
  await assertFails(get(ref(b.database(),'evidenceUpdates/alice/test-report/photos')));
  await env.withSecurityRulesDisabled(async c=>{await remove(ref(c.database(),'blockedEvidence/test-report'));await remove(ref(c.database(),'evidenceVisibility/alice/test-report'));});
  await assertSucceeds(set(ref(a.database(),'activity/alice'),{lastActiveAt:rtTime()}));
- const moderator=env.authenticatedContext('moderator',{email:'alexander155alvarado@gmail.com',email_verified:true});
- const unverified=env.authenticatedContext('not-moderator',{email:'alexander155alvarado@gmail.com',email_verified:false});
+ const moderator=env.authenticatedContext('moderator',{email:'admin@example.test',email_verified:true});
+ const unverified=env.authenticatedContext('not-moderator',{email:'admin@example.test',email_verified:false});
  await assertSucceeds(get(ref(moderator.database(),'activity')));
  await assertFails(get(ref(b.database(),'activity')));
  await assertFails(get(ref(unverified.database(),'activity')));

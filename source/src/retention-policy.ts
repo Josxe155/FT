@@ -8,7 +8,8 @@ export function timestampMillis(value:any):number|null {
 }
 export function eligiblePost(report:any,counts:any,now:number,hasComments=false):boolean {
  const created=timestampMillis(report?.createdAt);
- return created!==null&&created<=now-30*DAY&&!hasComments&&['like','wow','concern'].every(k=>Number.isInteger(counts?.[k])&&counts[k]===0);
+ return created!==null&&created<=now-30*DAY&&!hasComments&&['like','wow','concern'].every(k=>Number.isInteger(counts?.[k])&&counts[k]===0)
+    && ['angry','sad','love'].every(k=>Number.isInteger(counts?.[k]??0)&&(counts?.[k]??0)===0);
 }
 export function eligibleUser(user:any,activity:any,rolloutAt:any,now:number,protectedEmails:string[]):boolean {
  if(protectedEmails.includes(String(user.email||'').toLowerCase())||user.customClaims?.admin===true||user.customClaims?.retentionProtected===true)return false;

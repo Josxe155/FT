@@ -8,6 +8,8 @@ test('30 días exactos, cero reacciones ni comentarios; conservar participación
  assert.equal(shouldDeleteReport({createdAt:old},{like:0,wow:1,concern:0},now,policy),false);
  assert.equal(shouldDeleteReport({createdAt:old},{like:0,wow:0,concern:1},now,policy),false);
  assert.equal(shouldDeleteReport({createdAt:old},{like:0,wow:0,concern:0},now,policy,true),false);
+ for(const kind of ['angry','sad','love'])assert.equal(shouldDeleteReport({createdAt:old},{like:0,wow:0,concern:0,[kind]:1},now,policy),false);
+ assert.equal(shouldDeleteReport({createdAt:old},{like:0,wow:0,concern:0,angry:-1},now,policy),false);
  for(const [date,like] of [[now-30*DAY+1,0],[old,1],[old,-1],[old,NaN],[null,0]])
   assert.equal(shouldDeleteReport({createdAt:date},{like,wow:0,concern:0},now,policy),false);
 });

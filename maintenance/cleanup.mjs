@@ -41,13 +41,13 @@ export async function maintain({db,rtdb,auth,apply=false,now=Date.now(),settings
  async function considerReport(snap){
   const ref=snap.ref;
   if(!apply){
-   const [counts,votes,comments]=await Promise.all([ref.collection('reactionStats').doc('summary').get(),ref.collection('reactions').where('kind','in',['like','wow','concern']).limit(1).get(),ref.collection('replies').limit(1).get()]);
+   const [counts,votes,comments]=await Promise.all([ref.collection('reactionStats').doc('summary').get(),ref.collection('reactions').where('kind','in',['like','wow','concern','angry','sad','love']).limit(1).get(),ref.collection('replies').limit(1).get()]);
    if(shouldDeleteReport(snap.data(),counts.exists?counts.data():{like:0,wow:0,concern:0},now,settings,!comments.empty)&&votes.empty)result.reportsEligible++;
    return;
   }
   const jobRef=db.doc('maintenanceReportJobs/'+snap.id);
   const selected=await db.runTransaction(async tx=>{
-   const [fresh,counts,votes,comments]=await Promise.all([tx.get(ref),tx.get(ref.collection('reactionStats').doc('summary')),tx.get(ref.collection('reactions').where('kind','in',['like','wow','concern']).limit(1)),tx.get(ref.collection('replies').limit(1))]);
+   const [fresh,counts,votes,comments]=await Promise.all([tx.get(ref),tx.get(ref.collection('reactionStats').doc('summary')),tx.get(ref.collection('reactions').where('kind','in',['like','wow','concern','angry','sad','love']).limit(1)),tx.get(ref.collection('replies').limit(1))]);
    if(!fresh.exists||!shouldDeleteReport(fresh.data(),counts.exists?counts.data():{like:0,wow:0,concern:0},now,settings,!comments.empty)||!votes.empty)return false;
    const authorUid=fresh.get('authorUid');if(typeof authorUid!=='string'||!authorUid)return false;
    tx.set(jobRef,{reportId:snap.id,authorUid,startedAt:Timestamp.fromMillis(now)});

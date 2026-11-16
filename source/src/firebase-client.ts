@@ -305,9 +305,11 @@ export async function flagReport(reportId:string, reason:string, user:User, repl
 
 // Reacciones con contadores públicos y voto privado por cuenta.
 // El documento del usuario no se puede consultar ni enumerar por otros usuarios.
-export type ReactionKind='like'|'wow'|'concern'|'none';
-export type ReactionCounts={like:number;wow:number;concern:number};
-const zeroReactionCounts=():ReactionCounts=>({like:0,wow:0,concern:0});
+export const reactionKeys=['like','wow','concern','angry','sad','love'] as const;
+export type ReactionKind=typeof reactionKeys[number]|'none';
+export type ReactionCounts=Record<typeof reactionKeys[number],number>;
+const normalizeReactionCounts=(value:any):ReactionCounts=>Object.fromEntries(reactionKeys.map(kind=>[kind,Number.isInteger(value?.[kind])&&value[kind]>=0?value[kind]:0])) as ReactionCounts;
+const zeroReactionCounts=():ReactionCounts=>({like:0,wow:0,concern:0,angry:0,sad:0,love:0});
 export function listenReactionSummary(reportId:string,uid:string,onChange:(totals:ReactionCounts,mine:ReactionKind)=>void){
   if(!modules)return ()=>{};
   const f=modules.firestore;
@@ -315,24 +317,24 @@ export function listenReactionSummary(reportId:string,uid:string,onChange:(total
   const own=f.doc(db,'reports',reportId,'reactions',uid);
   let totals=zeroReactionCounts(),mine:ReactionKind='none';
   const emit=()=>onChange({...totals},mine);
-  const stopTotals=f.onSnapshot(stats,(snap:any)=>{const value=snap.data()||{};totals={like:value.like||0,wow:value.wow||0,concern:value.concern||0};emit();},(err:any)=>console.warn('No se pudo leer el contador',err));
+  const stopTotals=f.onSnapshot(stats,(snap:any)=>{const value=snap.data()||{};totals=normalizeReactionCounts(value);emit();},(err:any)=>console.warn('No se pudo leer el contador',err));
   const stopMine=f.onSnapshot(own,(snap:any)=>{mine=(snap.data()?.kind||'none') as ReactionKind;emit();},(err:any)=>console.warn('No se pudo leer la reacción',err));
   return ()=>{stopTotals();stopMine()};
 }
 export async function setReaction(reportId:string,next:ReactionKind){
   if(!modules||!auth?.currentUser)throw new Error('Inicia sesión para reaccionar.');
-  if(!['like','wow','concern','none'].includes(next))throw new Error('Reacción inválida.');
+  if(![...reactionKeys,'none'].includes(next))throw new Error('Reacción inválida.');
   const f=modules.firestore;
   const vote=f.doc(db,'reports',reportId,'reactions',auth.currentUser.uid);
   const summary=f.doc(db,'reports',reportId,'reactionStats','summary');
   await f.runTransaction(db,async(tx:any)=>{
     const [oldVote,oldSummary]=await Promise.all([tx.get(vote),tx.get(summary)]);
     const previous=(oldVote.data()?.kind||'none') as ReactionKind;
-    const counts={like:0,wow:0,concern:0,...(oldSummary.data()||{})};
+    const counts=normalizeReactionCounts(oldSummary.data());
     if(previous!=='none')counts[previous]=Math.max(0,counts[previous]-1);
     if(next!=='none')counts[next]++;
     tx.set(vote,{kind:next,updatedAt:f.serverTimestamp()});
-    tx.set(summary,{like:counts.like,wow:counts.wow,concern:counts.concern,updatedAt:f.serverTimestamp()});
+    tx.set(summary,{...counts,updatedAt:f.serverTimestamp()});
   });
 }
 
@@ -403,24 +405,24 @@ export function listenCommentReactionSummary(reportId:string,commentId:string,ui
   const myRef=f.doc(db,'reports',reportId,'replies',commentId,'reactions',uid);
   let counts=zeroReactionCounts(),mine:ReactionKind='none';
   const emit=()=>onChange({...counts},mine);
-  const off1=f.onSnapshot(totalRef,(snap:any)=>{const v=snap.data()||{};counts={like:v.like||0,wow:v.wow||0,concern:v.concern||0};emit();},(err:any)=>console.warn('Reacciones de comentario:',err));
+  const off1=f.onSnapshot(totalRef,(snap:any)=>{const v=snap.data()||{};counts=normalizeReactionCounts(v);emit();},(err:any)=>console.warn('Reacciones de comentario:',err));
   const off2=f.onSnapshot(myRef,(snap:any)=>{mine=(snap.data()?.kind||'none') as ReactionKind;emit();},(err:any)=>console.warn('Voto del comentario:',err));
   return ()=>{off1();off2()};
 }
 export async function setCommentReaction(reportId:string,commentId:string,next:ReactionKind){
   if(!modules||!auth?.currentUser)throw new Error('Inicia sesión para reaccionar.');
-  if(!['like','wow','concern','none'].includes(next))throw new Error('Reacción inválida.');
+  if(![...reactionKeys,'none'].includes(next))throw new Error('Reacción inválida.');
   const f=modules.firestore;
   const vote=f.doc(db,'reports',reportId,'replies',commentId,'reactions',auth.currentUser.uid);
   const summary=f.doc(db,'reports',reportId,'replies',commentId,'reactionStats','summary');
   await f.runTransaction(db,async(tx:any)=>{
     const [oldVote,oldSummary]=await Promise.all([tx.get(vote),tx.get(summary)]);
     const previous=(oldVote.data()?.kind||'none') as ReactionKind;
-    const counts={like:0,wow:0,concern:0,...(oldSummary.data()||{})};
+    const counts=normalizeReactionCounts(oldSummary.data());
     if(previous!=='none')counts[previous]=Math.max(0,counts[previous]-1);
     if(next!=='none')counts[next]++;
     tx.set(vote,{kind:next,updatedAt:f.serverTimestamp()});
-    tx.set(summary,{like:counts.like,wow:counts.wow,concern:counts.concern,updatedAt:f.serverTimestamp()});
+    tx.set(summary,{...counts,updatedAt:f.serverTimestamp()});
   });
 }
 

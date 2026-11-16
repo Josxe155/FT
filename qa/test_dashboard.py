@@ -1,11 +1,11 @@
 """Dashboard completo con servicios simulados: nunca usa datos ni tokens reales."""
-import json,time,copy,os,io,base64
+import json,time,copy,os,io,base64,re
 from PIL import Image
 from urllib.parse import urlparse,parse_qs,unquote
 from pathlib import Path
 from playwright.sync_api import sync_playwright,expect
 PROJECT='funados-todos';PREFIX=f'projects/{PROJECT}/databases/(default)/documents/'
-ADMIN='alexander155alvarado@gmail.com';NOW=int(time.time()*1000);DAY=86400000
+ADMIN='admin@example.test';NOW=int(time.time()*1000);DAY=86400000
 from datetime import datetime,timezone
 def stamp(ms):return datetime.fromtimestamp(ms/1000,timezone.utc).isoformat().replace('+00:00','Z')
 def encode(v):
@@ -58,7 +58,8 @@ class Backend:
   req=route.request;url=urlparse(req.url);body=json.loads(req.post_data or '{}');path=unquote(url.path);params=parse_qs(url.query)
   if req.method=='OPTIONS':return self.reply(route,{})
   if 'identitytoolkit' in url.netloc:
-   if path.endswith('accounts:batchGet'):return self.reply(route,{'users':list(self.users.values())})
+   if path.endswith('accounts:batchGet'):
+    start=int(params.get('nextPageToken',['0'])[0]);size=int(params.get('maxResults',['1000'])[0]);users=list(self.users.values());return self.reply(route,{'users':users[start:start+size],**({'nextPageToken':str(start+size)} if start+size<len(users) else {})})
    if path.endswith('accounts:lookup'):return self.reply(route,{'users':[self.users[u] for u in body.get('localId',[]) if u in self.users]})
    if path.endswith('accounts:delete'):
     self.deletions.append('auth/'+body['localId']);self.users.pop(body['localId'],None);return self.reply(route,{})
@@ -69,6 +70,8 @@ class Backend:
    if req.method=='PUT':self.setrt(rpath,body)
    return self.reply(route,self.getrt(rpath))
   rel=path.split('/documents',1)[1].lstrip('/')
+  if rel==':batchGet':
+   return self.reply(route,[{'found':self.docs[name.split('/documents/')[1]]} if name.split('/documents/')[1] in self.docs else {'missing':name} for name in body.get('documents',[])])
   if rel==':beginTransaction':return self.reply(route,{'transaction':'qa-transaction'})
   if rel==':rollback':return self.reply(route,{})
   if rel==':commit':
@@ -111,7 +114,7 @@ class Backend:
   if url.path.endswith('/delete'):self.docs.pop(path,None);return self.reply(route,{})
 AUTH="""
 export class GoogleAuthProvider{addScope(){} static credentialFromResult(){return {accessToken:'qa-fake-token'}}}
-const user={uid:'qa-admin',email:window.__qaEmail||'alexander155alvarado@gmail.com',emailVerified:true,getIdTokenResult:async()=>({claims:{email_verified:true}})};
+const user={uid:'qa-admin',email:window.__qaEmail||'admin@example.test',emailVerified:true,getIdTokenResult:async()=>({claims:{email_verified:true}})};
 const auth={currentUser:user};export const getAuth=()=>auth;
 export function onAuthStateChanged(a,cb){queueMicrotask(()=>cb(a.currentUser));return ()=>{}}
 export const reauthenticateWithPopup=async()=>({user});export const signInWithPopup=async()=>({user});export const signOut=async()=>{auth.currentUser=null;location.reload()};
@@ -129,6 +132,11 @@ export const serverTimestamp=()=>new Date().toISOString();export async function 
 """.replace("export const getCountFromServer=async q=>({data:()=>({count:awaited})});","export const getCountFromServer=async q=>{const list=await items(q);return {data:()=>({count:list.length})}};")
 RTDB="""export const getDatabase=()=>({});export const ref=(_,path)=>({path});export async function get(r){const v=await (await fetch('/__qa/realtime?path='+encodeURIComponent(r.path))).json();return {val:()=>v,exists:()=>v!==null}}export async function set(r,v){await fetch('/__qa/realtime?path='+encodeURIComponent(r.path),{method:'POST',body:JSON.stringify(v)})}"""
 artifacts=Path(os.environ.get('QA_ARTIFACT_DIR','/tmp/funados-qa'));artifacts.mkdir(parents=True,exist_ok=True)
+def dashboard_module(route):
+ # Sustituye únicamente la configuración del módulo servido en el entorno de QA.
+ code=(Path(__file__).resolve().parents[1]/'web/assets/dashboard.js').read_text()
+ code=re.sub(r"admin='[^']+'", "admin='admin@example.test'", code)
+ route.fulfill(content_type='application/javascript',body=code)
 with sync_playwright() as p:
  browser=p.chromium.launch(headless=True,executable_path='/usr/bin/chromium',args=['--no-sandbox'])
  for width in [390,1440]:
@@ -139,7 +147,7 @@ with sync_playwright() as p:
   def sdk(route):
    name=route.request.url.split('/')[-1];code=AUTH if name=='firebase-auth.js' else FIRESTORE if name=='firebase-firestore.js' else RTDB if name=='firebase-database.js' else 'export const initializeApp=()=>({});'
    route.fulfill(content_type='application/javascript',body=code,headers={'Access-Control-Allow-Origin':'*'})
-  page.route('https://www.gstatic.com/firebasejs/**',sdk)
+  page.route('https://www.gstatic.com/firebasejs/**',sdk);page.route('**/assets/dashboard.js*',dashboard_module)
   page.goto('http://127.0.0.1:5000/dashboard.html');expect(page.get_by_role('heading',name='Revisa, modera y recupera espacio.')).to_be_visible()
   expect(page.locator('tbody tr')).to_have_count(50);page.get_by_role('button',name='Cargar más',exact=True).click();expect(page.locator('tbody tr')).to_have_count(59)
   page.locator('#filter').fill('fresh-1');assert page.locator('#filter').evaluate('(e)=>e===document.activeElement');assert page.locator('tbody tr').count()<50
@@ -180,15 +188,31 @@ with sync_playwright() as p:
   page.once('dialog',lambda dialog:dialog.accept());page.locator('[data-maint=run]').click();expect(page.locator('.dash-status')).to_contain_text('0 errores',timeout=30000);assert 'reports/retry-post' not in backend.docs
   assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1'),width
   assert not errors,errors
+  # Directorio privado: Google desde Auth, invitados desde userPrefs, paginación y escape.
+  backend.users['qa-admin'].update({'displayName':'Ada Gómez','providerUserInfo':[{'providerId':'google.com','displayName':'Ada Gómez'}]})
+  backend.put('userPrefs/active',uid='active',alias='Invitado <b>Seguro</b>')
+  for n in range(55):backend.users['directory-'+str(n)]={'localId':'directory-'+str(n),'displayName':'Invitado de prueba '+str(n),'createdAt':str(NOW),'lastLoginAt':str(NOW)}
+  page.get_by_role('button',name='Usuarios',exact=True).click();expect(page.locator('#user-rows tr')).to_have_count(50)
+  page.get_by_role('button',name='Cargar más usuarios').click();expect(page.locator('#user-rows tr')).to_have_count(len(backend.users))
+  page.locator('#user-filter').fill('Ada Gómez');expect(page.locator('#user-rows tr')).to_have_count(1);expect(page.locator('#user-rows')).to_contain_text('Google')
+  page.locator('#user-filter').fill('Invitado <b>Seguro</b>');expect(page.locator('#user-rows tr')).to_have_count(1);expect(page.locator('#user-rows')).to_contain_text('Invitado <b>Seguro</b>');expect(page.locator('#user-rows b')).to_have_count(0)
+  page.locator('#user-filter').fill('');page.wait_for_timeout(200);page.screenshot(path=str(artifacts/f'users-{width}.png'),full_page=True)
+  assert 'profiles/active' not in backend.docs
+  print('PASS directorio privado',width,'Google, apodo de invitado, paginación, búsqueda y escape HTML')
   print('PASS dashboard',width,'px: paginación, búsqueda, revisión, cancelación, cambios recientes, cascada y reanudación')
   page.close()
+ # Acceso a Usuarios sin autorización previa: la consulta es solo lectura.
+ backend=Backend();backend.users['qa-admin'].update({'displayName':'Ada Gómez','providerUserInfo':[{'providerId':'google.com'}]});backend.put('userPrefs/active',alias='Apodo privado')
+ page=browser.new_page(viewport={'width':390,'height':900});page.route('https://**/*',lambda route:route.abort());page.route('https://firestore.googleapis.com/**',backend.api);page.route('https://identitytoolkit.googleapis.com/**',backend.api);page.route('https://funados-todos-default-rtdb.firebaseio.com/**',backend.api);page.route('**/__qa/**',backend.local);page.route('https://www.gstatic.com/firebasejs/**',sdk);page.route('**/assets/dashboard.js*',dashboard_module)
+ page.goto('http://127.0.0.1:5000/dashboard.html');page.get_by_role('button',name='Usuarios',exact=True).click();expect(page.get_by_role('button',name='Autorizar consulta de usuarios')).to_be_visible();page.get_by_role('button',name='Autorizar consulta de usuarios').click();expect(page.locator('#user-rows')).to_contain_text('Apodo privado');assert len(backend.deletions)==0;assert len(backend.users)==4;page.close()
+ print('PASS directorio: autorización privada sin ejecutar mantenimiento')
  # Las cuentas en margen se muestran, pero no se pueden seleccionar.
  for mode in ['grace','unauthorized']:
   backend=Backend();backend.docs['maintenance/control']['fields']['rolloutAt']={'timestampValue':stamp(NOW)}
   page=browser.new_page(viewport={'width':390,'height':900})
   page.route('https://**/*',lambda route:route.abort())
   page.route('https://firestore.googleapis.com/**',backend.api);page.route('https://identitytoolkit.googleapis.com/**',backend.api);page.route('https://funados-todos-default-rtdb.firebaseio.com/**',backend.api)
-  page.route('**/__qa/**',backend.local);page.route('https://www.gstatic.com/firebasejs/**',sdk)
+  page.route('**/__qa/**',backend.local);page.route('https://www.gstatic.com/firebasejs/**',sdk);page.route('**/assets/dashboard.js*',dashboard_module)
   if mode=='unauthorized':page.add_init_script("window.__qaEmail='other@example.com';")
   page.goto('http://127.0.0.1:5000/dashboard.html')
   if mode=='unauthorized':

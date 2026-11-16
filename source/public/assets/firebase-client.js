@@ -407,7 +407,11 @@ export async function flagReport(reportId, reason, user, replyId = null, details
         throw e;
     }
 }
-const zeroReactionCounts = () => ({ like: 0, wow: 0, concern: 0 });
+// Reacciones con contadores públicos y voto privado por cuenta.
+// El documento del usuario no se puede consultar ni enumerar por otros usuarios.
+export const reactionKeys = ['like', 'wow', 'concern', 'angry', 'sad', 'love'];
+const normalizeReactionCounts = (value) => Object.fromEntries(reactionKeys.map(kind => [kind, Number.isInteger(value?.[kind]) && value[kind] >= 0 ? value[kind] : 0]));
+const zeroReactionCounts = () => ({ like: 0, wow: 0, concern: 0, angry: 0, sad: 0, love: 0 });
 export function listenReactionSummary(reportId, uid, onChange) {
     if (!modules)
         return () => { };
@@ -416,14 +420,14 @@ export function listenReactionSummary(reportId, uid, onChange) {
     const own = f.doc(db, 'reports', reportId, 'reactions', uid);
     let totals = zeroReactionCounts(), mine = 'none';
     const emit = () => onChange({ ...totals }, mine);
-    const stopTotals = f.onSnapshot(stats, (snap) => { const value = snap.data() || {}; totals = { like: value.like || 0, wow: value.wow || 0, concern: value.concern || 0 }; emit(); }, (err) => console.warn('No se pudo leer el contador', err));
+    const stopTotals = f.onSnapshot(stats, (snap) => { const value = snap.data() || {}; totals = normalizeReactionCounts(value); emit(); }, (err) => console.warn('No se pudo leer el contador', err));
     const stopMine = f.onSnapshot(own, (snap) => { mine = (snap.data()?.kind || 'none'); emit(); }, (err) => console.warn('No se pudo leer la reacción', err));
     return () => { stopTotals(); stopMine(); };
 }
 export async function setReaction(reportId, next) {
     if (!modules || !auth?.currentUser)
         throw new Error('Inicia sesión para reaccionar.');
-    if (!['like', 'wow', 'concern', 'none'].includes(next))
+    if (![...reactionKeys, 'none'].includes(next))
         throw new Error('Reacción inválida.');
     const f = modules.firestore;
     const vote = f.doc(db, 'reports', reportId, 'reactions', auth.currentUser.uid);
@@ -431,13 +435,13 @@ export async function setReaction(reportId, next) {
     await f.runTransaction(db, async (tx) => {
         const [oldVote, oldSummary] = await Promise.all([tx.get(vote), tx.get(summary)]);
         const previous = (oldVote.data()?.kind || 'none');
-        const counts = { like: 0, wow: 0, concern: 0, ...(oldSummary.data() || {}) };
+        const counts = normalizeReactionCounts(oldSummary.data());
         if (previous !== 'none')
             counts[previous] = Math.max(0, counts[previous] - 1);
         if (next !== 'none')
             counts[next]++;
         tx.set(vote, { kind: next, updatedAt: f.serverTimestamp() });
-        tx.set(summary, { like: counts.like, wow: counts.wow, concern: counts.concern, updatedAt: f.serverTimestamp() });
+        tx.set(summary, { ...counts, updatedAt: f.serverTimestamp() });
     });
 }
 /** Respuestas anónimas, editables por su autor y anidadas. */
@@ -520,14 +524,14 @@ export function listenCommentReactionSummary(reportId, commentId, uid, onChange)
     const myRef = f.doc(db, 'reports', reportId, 'replies', commentId, 'reactions', uid);
     let counts = zeroReactionCounts(), mine = 'none';
     const emit = () => onChange({ ...counts }, mine);
-    const off1 = f.onSnapshot(totalRef, (snap) => { const v = snap.data() || {}; counts = { like: v.like || 0, wow: v.wow || 0, concern: v.concern || 0 }; emit(); }, (err) => console.warn('Reacciones de comentario:', err));
+    const off1 = f.onSnapshot(totalRef, (snap) => { const v = snap.data() || {}; counts = normalizeReactionCounts(v); emit(); }, (err) => console.warn('Reacciones de comentario:', err));
     const off2 = f.onSnapshot(myRef, (snap) => { mine = (snap.data()?.kind || 'none'); emit(); }, (err) => console.warn('Voto del comentario:', err));
     return () => { off1(); off2(); };
 }
 export async function setCommentReaction(reportId, commentId, next) {
     if (!modules || !auth?.currentUser)
         throw new Error('Inicia sesión para reaccionar.');
-    if (!['like', 'wow', 'concern', 'none'].includes(next))
+    if (![...reactionKeys, 'none'].includes(next))
         throw new Error('Reacción inválida.');
     const f = modules.firestore;
     const vote = f.doc(db, 'reports', reportId, 'replies', commentId, 'reactions', auth.currentUser.uid);
@@ -535,13 +539,13 @@ export async function setCommentReaction(reportId, commentId, next) {
     await f.runTransaction(db, async (tx) => {
         const [oldVote, oldSummary] = await Promise.all([tx.get(vote), tx.get(summary)]);
         const previous = (oldVote.data()?.kind || 'none');
-        const counts = { like: 0, wow: 0, concern: 0, ...(oldSummary.data() || {}) };
+        const counts = normalizeReactionCounts(oldSummary.data());
         if (previous !== 'none')
             counts[previous] = Math.max(0, counts[previous] - 1);
         if (next !== 'none')
             counts[next]++;
         tx.set(vote, { kind: next, updatedAt: f.serverTimestamp() });
-        tx.set(summary, { like: counts.like, wow: counts.wow, concern: counts.concern, updatedAt: f.serverTimestamp() });
+        tx.set(summary, { ...counts, updatedAt: f.serverTimestamp() });
     });
 }
 // La cuenta de TikTok es declarada por el usuario, no está certificada por TikTok.

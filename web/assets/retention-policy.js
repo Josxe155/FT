@@ -13,7 +13,8 @@ export function timestampMillis(value) {
 }
 export function eligiblePost(report, counts, now, hasComments = false) {
     const created = timestampMillis(report?.createdAt);
-    return created !== null && created <= now - 30 * DAY && !hasComments && ['like', 'wow', 'concern'].every(k => Number.isInteger(counts?.[k]) && counts[k] === 0);
+    return created !== null && created <= now - 30 * DAY && !hasComments && ['like', 'wow', 'concern'].every(k => Number.isInteger(counts?.[k]) && counts[k] === 0)
+        && ['angry', 'sad', 'love'].every(k => Number.isInteger(counts?.[k] ?? 0) && (counts?.[k] ?? 0) === 0);
 }
 export function eligibleUser(user, activity, rolloutAt, now, protectedEmails) {
     if (protectedEmails.includes(String(user.email || '').toLowerCase()) || user.customClaims?.admin === true || user.customClaims?.retentionProtected === true)

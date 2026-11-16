@@ -201,3 +201,33 @@ Contador de comentarios (16/11/2026)
   para activar su carga diferida. Sin errores de permisos de Firebase.
 - Publicación, archivos, comentarios y las dos cuentas de QA retirados;
   ningún contenido de usuarios reales fue eliminado.
+
+Seis reacciones, burbuja y directorio privado de usuarios (16/11/2026)
+- PASS TypeScript, compilación y sintaxis JavaScript del dashboard.
+- PASS 320/390/768/1440: seis reacciones en publicaciones y comentarios,
+  cambiar/quitar selección, número dentro de la burbuja y total de novedades
+  a la derecha de Volver a la funa, en la misma fila.
+- PASS emuladores: seis contadores atómicos, migración de resúmenes legados,
+  dos cuentas, voto privado, intento de inflado/reinicio y reacción inválida.
+- PASS mantenimiento: una reacción de enojo/tristeza/corazón protege la
+  publicación, aunque falten campos nuevos en un resumen antiguo.
+- PASS Usuarios 390/1440: nombre de Google desde Auth, apodo privado desde
+  userPrefs, búsqueda, paginación, escape HTML y acceso no administrativo
+  rechazado. Autorizar el directorio no ejecuta ninguna limpieza.
+- La prueba de interfaz simula la ventana OAuth; no utiliza la cuenta personal
+  del propietario para una nueva autorización interactiva.
+- PASS deploy --dry-run y deploy Hosting/Firestore/RTDB. Publicación de la web
+  antes de subir el código a GitHub, según lo solicitado.
+- PASS producción: las seis reacciones de publicaciones y comentarios cambian
+  y se quitan correctamente. Total de comentarios dentro de la burbuja,
+  contador 0→1→2→1 y total de novedades junto a Volver a la funa.
+- PASS APIs privadas en producción: directorio de Firebase Auth y lectura por
+  lotes de userPrefs recuperan el apodo del invitado de QA; solo lectura.
+  Se utilizó la credencial propietaria existente en una sesión aislada de QA.
+- PASS lector, fotos, vídeo y página de novedades. Datos de QA retirados;
+  ningún usuario ni contenido real fue eliminado.
+- Las pruebas de dashboard y reglas usan ahora una identidad ficticia reservada
+  admin@example.test, sin publicar la dirección administrativa real en esos
+  archivos de pruebas. Se repitieron y pasaron con esas fixtures.
+- Las restricciones de la revisión automática de subida se resolvieron:
+  reglas sin nuevas identidades y pruebas con datos ficticios.

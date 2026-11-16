@@ -22,6 +22,7 @@ try{
  await db.doc('reports/commented/replies/comment').set({text:'Conversación que se conserva'});
  await db.doc('reports/wow').set({id:'wow',authorUid:'active',createdAt:Timestamp.fromMillis(old),status:'approved'});
  await db.doc('reports/wow/reactionStats/summary').set({like:0,wow:1,concern:0});
+ for(const kind of ['angry','sad','love']){await db.doc('reports/'+kind).set({id:kind,authorUid:'active',createdAt:Timestamp.fromMillis(old),status:'approved'});await db.doc('reports/'+kind+'/reactions/someone').set({kind});}
  await db.doc('flags/for-expired').set({reportId:'expired'});
  await rtdb.ref('evidence/idle/expired').set({files:{0:{meta:{name:'file'},chunks:{0:'YWJj'}}}});
  await rtdb.ref('evidence/idle/supported').set({keep:true});
@@ -38,7 +39,7 @@ try{
  assert.equal((await db.doc('flags/for-expired').get()).exists,false);
  assert.equal((await rtdb.ref('evidence/idle/expired').get()).exists(),false);
  assert.equal((await rtdb.ref('evidenceVisibility/idle/expired').get()).exists(),false);
- for(const id of ['supported','fresh','inconsistent','commented','wow'])assert.equal((await db.doc('reports/'+id).get()).exists,true);
+ for(const id of ['supported','fresh','inconsistent','commented','wow','angry','sad','love'])assert.equal((await db.doc('reports/'+id).get()).exists,true);
  assert.equal((await rtdb.ref('evidence/idle/supported').get()).exists(),true);
  await assert.rejects(auth.getUser('idle'),e=>e.code==='auth/user-not-found');
  for(const uid of ['active','protected','recent-login'])assert.equal((await auth.getUser(uid)).uid,uid);

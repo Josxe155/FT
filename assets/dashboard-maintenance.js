@@ -52,7 +52,7 @@ export function createMaintenance({cfg,auth,rtdb,mod,admin,onChange,onFinished=(
   state.rolloutAt=fieldsOf(doc).rolloutAt;return doc;
  }
  async function pool(items,fn){let position=0;await Promise.all(Array.from({length:Math.min(5,items.length)},async()=>{for(;;){const index=position++;if(index>=items.length)break;await fn(items[index]);}}));}
- const activeVoteQuery={from:[{collectionId:'reactions'}],where:{fieldFilter:{field:{fieldPath:'kind'},op:'IN',value:{arrayValue:{values:['like','wow','concern'].map(stringValue=>({stringValue}))}}}},limit:1};
+ const activeVoteQuery={from:[{collectionId:'reactions'}],where:{fieldFilter:{field:{fieldPath:'kind'},op:'IN',value:{arrayValue:{values:['like','wow','concern','angry','sad','love'].map(stringValue=>({stringValue}))}}}},limit:1};
  const commentQuery={from:[{collectionId:'replies'}],limit:1};
  async function reportInfo(doc,token){
   const data=fieldsOf(doc),id=doc.name.split('/').pop();
@@ -87,8 +87,8 @@ export function createMaintenance({cfg,auth,rtdb,mod,admin,onChange,onFinished=(
    state.message=`Revisadas ${state.scannedPosts} publicaciones antiguas y ${state.scannedUsers} cuentas. ${state.morePosts||state.moreUsers?'Quedan páginas por revisar.':'Revisión completa.'}`;
   }catch(error){state.message=error.message;}finally{state.busy=false;changed();}
  }
- async function connect(){
-  if(!validAdmin())return;state.busy=true;state.message='Autoriza el acceso temporal de tu cuenta administradora…';changed();
+ async function connect(review=true){
+  if(!validAdmin()||state.busy)return false;state.busy=true;state.message='Autoriza el acceso temporal de tu cuenta administradora…';changed();
   try{
    const provider=new mod.auth.GoogleAuthProvider();
    for(const scope of ['https://www.googleapis.com/auth/datastore','https://www.googleapis.com/auth/firebase','https://www.googleapis.com/auth/firebase.database','https://www.googleapis.com/auth/userinfo.email'])provider.addScope(scope);
@@ -97,7 +97,8 @@ export function createMaintenance({cfg,auth,rtdb,mod,admin,onChange,onFinished=(
    accessToken=credential.accessToken;expires=Date.now()+50*60*1000;connectedUid=result.user.uid;state.connected=true;
   }catch(error){state.message=error.code==='auth/popup-closed-by-user'?'Autorización cancelada. No se modificaron datos.':error.message;}
   finally{state.busy=false;changed();}
-  if(state.connected)await refresh();
+  if(state.connected&&review)await refresh();
+  return state.connected;
  }
  async function acquire(){await serverNow();await transaction(async token=>{const current=fieldsOf(await read('maintenance/control',token));if(timestampMillis(current.leaseUntil)>state.now&&current.leaseOwner!==leaseOwner)throw new Error('Hay otra limpieza en curso. Espera a que termine.');return [write('maintenance/control',{leaseOwner,leaseUntil:new Date(state.now+30*60*1000)})];});}
  async function release(){await transaction(async token=>{const current=fieldsOf(await read('maintenance/control',token));return current.leaseOwner===leaseOwner?[write('maintenance/control',{leaseOwner:null,leaseUntil:new Date(0)})]:[];});}
@@ -144,6 +145,23 @@ export function createMaintenance({cfg,auth,rtdb,mod,admin,onChange,onFinished=(
   const summary=`Finalizado: ${donePosts} publicaciones y ${doneUsers} cuentas eliminadas. ${skipped} conservadas al revisar otra vez. ${errors} errores${errors?'; los trabajos incompletos se pueden reanudar':''}.${lastError?' '+lastError:''}`;
   await refresh();state.message=summary;changed();await onFinished();
  }
+ // Directorio privado: Auth aporta el nombre de Google y userPrefs el apodo.
+ // Se consulta solo bajo la autorización administrativa temporal ya existente.
+ async function directoryPage(nextPageToken=''){
+  if(state.busy)throw new Error('Espera a que termine la operación administrativa.');
+  const result=await request(identity+'/accounts:batchGet?maxResults=50'+(nextPageToken?'&nextPageToken='+encodeURIComponent(nextPageToken):''));
+  const users=result.users||[],ids=users.map(user=>user.localId).filter(safeId);
+  const aliases=new Map();
+  if(ids.length){
+   const docs=await request(base+':batchGet',{documents:ids.map(uid=>`projects/${cfg.projectId}/databases/(default)/documents/userPrefs/${uid}`)});
+   for(const item of docs){if(item.found){const doc=item.found,uid=doc.name.split('/').pop();aliases.set(uid,String(fieldsOf(doc).alias||'').trim());}}
+  }
+  return {users:users.map(user=>{
+   const google=(user.providerUserInfo||[]).find(provider=>provider.providerId==='google.com');
+   const guest=!google&&!user.email&&!(user.providerUserInfo||[]).length;
+   return {uid:user.localId,name:google?(user.displayName||google.displayName||'Cuenta de Google sin nombre'):guest?(aliases.get(user.localId)||user.displayName||'Invitado sin apodo'):(user.displayName||'Cuenta sin nombre'),provider:google?'Google':guest?'Invitado':'Otra cuenta',createdAt:Number(user.createdAt)||0};
+  }),nextPageToken:result.nextPageToken||''};
+ }
  const day=v=>{const n=timestampMillis(v);return n===null?'—':new Date(n).toLocaleString('es-EC');};
  function view(){
   const disabled=state.busy?'disabled':'';
@@ -155,5 +173,5 @@ export function createMaintenance({cfg,auth,rtdb,mod,admin,onChange,onFinished=(
   container.querySelectorAll('[data-maint]').forEach(b=>b.onclick=()=>{const a=b.dataset.maint;if(a==='connect')void connect();if(a==='refresh')void refresh();if(a==='more')void refresh({more:true});if(a==='run')void run();if(a==='select-posts'){state.postSelection=new Set(state.posts.slice(0,100).map(p=>p.id));changed();}if(a==='select-users'){state.userSelection=new Set(state.users.filter(u=>u.eligible).slice(0,100).map(u=>u.uid));changed();}});
   container.querySelectorAll('[data-maint-post],[data-maint-user]').forEach(box=>box.onchange=()=>{const isPost=box.dataset.maintPost!==undefined,set=isPost?state.postSelection:state.userSelection,id=isPost?box.dataset.maintPost:box.dataset.maintUser;if(box.checked&&set.size>=100){state.message='Selecciona hasta 100 elementos de cada tipo.';}else if(box.checked)set.add(id);else set.delete(id);changed();});
  }
- return {view,bind,disconnect,get busy(){return state.busy;}};
+ return {view,bind,disconnect,directoryPage,authorizeDirectory:()=>connect(false),get connected(){return state.connected&&validAdmin()&&auth.currentUser.uid===connectedUid&&Date.now()<expires;},get busy(){return state.busy;}};
 }
