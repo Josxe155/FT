@@ -266,3 +266,12 @@ Revisión de cierre e iconos proporcionados (16/11/2026)
 - Observación externa persistente: dos fotografías de proveedores ajenos
   respondieron 503; los manejadores de error mantienen el fondo de respaldo
   y permiten navegar. No son fallos de Firebase ni de la lógica de publicación.
+
+Reacciones subordinadas a las evidencias (16/11/2026)
+- Tira flexible de ancho natural, en lugar de una cuadrícula de tarjetas.
+- Emojis a 14 px, números a 10 px y botones de 30 px; sin fondos llamativos
+  ni cápsulas alrededor del contador. La selección mantiene una marca discreta.
+- Menos margen y altura bajo las fotos/vídeos para dar prioridad a la evidencia.
+- PASS TypeScript, compilación y reacciones en 320/390/768/1440 px:
+  seis opciones, contador a la derecha, cambiar/quitar y sin desbordamiento.
+- Deploy Hosting completado, sin cambios de reglas ni de datos.

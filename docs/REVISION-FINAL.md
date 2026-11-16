@@ -79,3 +79,7 @@ Los emojis de reacción se normalizan a 18 px, con botones de altura suficiente 
 La revisión confirmó y corrigió un borrador que podía pasar al hilo de otra publicación al abrir sus comentarios. Ahora solo se restaura si pertenece a la misma funa. También se conserva el texto, el foco y el cursor de búsqueda/apodo ante actualizaciones de pantalla; el apodo se restaura únicamente para la misma cuenta y ruta. Las regresiones se prueban a 320, 390 y 1440 px.
 
 Se ejecutaron las pruebas de todas las secciones: acceso, 14 cantones, ajustes, Mis funas, TikTok, comentarios, respuestas, denuncias, actualizaciones, reacciones, sensibilidad, carruseles, reproducción y descarga, dashboard, directorio privado, moderación, mantenimiento y reglas de Firebase en emuladores. Google e invitados permanecen habilitados y el dominio publicado está autorizado. Los resultados detallados y las limitaciones externas observadas permanecen documentados en `qa/RESULTADOS.txt`.
+
+## Prioridad al contenido multimedia
+
+Las reacciones pasan a una tira compacta de tamaño natural, sin tarjetas ni contadores en cápsulas. Los emojis miden 14 px y los botones reducen su altura a 30 px. El fondo es transparente salvo al señalar o seleccionar una reacción. La tira se adapta al espacio disponible para dar protagonismo a las imágenes y vídeos.

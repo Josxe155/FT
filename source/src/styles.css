@@ -261,3 +261,12 @@
 @media(max-width:600px){.updates-back-row{gap:9px;margin-bottom:22px}.updates-back-row .back-link{font-size:12px}.updates-back-row .updates-page-count{font-size:10px;padding:7px 9px}.reactions-bar{gap:6px}.react-button{flex-direction:row;gap:6px;padding:8px 6px;min-height:44px}.react-label{font-size:10px}.react-emoji{font-size:18px}.comment-reactions{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.comment-react-button{min-height:34px}.report-bottom [data-action=thread]{display:flex;flex-direction:column;gap:4px;padding:7px 4px}.report-bottom .comment-bubble{width:30px;height:24px;min-width:30px}.report-bottom .comment-bubble .comment-count{font-size:9px;max-width:24px;margin-bottom:3px}.report-bottom .comment-action-label{font-size:11px}}
 
 .comment-react-button>span[aria-hidden=true]{font-size:18px;line-height:1.2}
+
+/* Reacciones secundarias: una tira compacta, sin tarjetas ni contadores en cápsulas. */
+.reactions-bar,.comment-reactions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:4px;max-width:100%}
+.reactions-bar{margin:10px 0 0;padding:0;border:0}
+.reactions-bar .react-button,.comment-reactions .comment-react-button{display:inline-flex;flex:0 0 auto;flex-direction:row;align-items:center;justify-content:center;gap:3px;width:auto;min-width:28px;min-height:30px;margin:0;padding:4px 5px;border:1px solid transparent;border-radius:6px;background:transparent;color:#9eafc8;font-weight:500;box-shadow:none;transform:none}
+.reactions-bar .react-emoji,.comment-reactions .comment-react-button>span[aria-hidden=true]{font-size:14px;line-height:1.2}
+.reactions-bar .react-number,.comment-reactions .react-number{display:inline-block;min-width:0;width:auto;max-width:none;height:auto;margin:0;padding:0;border:0;border-radius:0;background:none;color:inherit;font-size:10px;font-weight:500;line-height:1.2;font-variant-numeric:tabular-nums;overflow-wrap:normal}
+.reactions-bar .react-button:hover,.comment-reactions .comment-react-button:hover{background:#182338;border-color:#35455f;transform:none}
+.reactions-bar .react-button.react-selected,.comment-reactions .comment-react-button.react-selected{background:#1c2b43;border-color:#516689;color:#eef4ff;box-shadow:none}
