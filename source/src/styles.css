@@ -273,3 +273,5 @@
 .reactions-bar .react-button:hover,.comment-reactions .comment-react-button:hover{background:#182338;border-color:#35455f;transform:none}
 .reactions-bar .react-button.react-selected,.comment-reactions .comment-react-button.react-selected{background:#1c2b43;border-color:#516689;color:#eef4ff;box-shadow:none}
 @media(max-width:380px){.reactions-bar{gap:3px}.reactions-bar .react-button{gap:3px;padding:4px 3px;min-height:34px}}
+
+.photo-credits{margin:12px auto 0;max-width:620px;font-size:11px;line-height:1.7}.photo-credits summary{cursor:pointer;color:#9db0cc}.photo-credits p{margin:8px 0 0;padding:0 16px}.photo-credits a{color:#b7c9e5;text-decoration:underline;text-underline-offset:3px}

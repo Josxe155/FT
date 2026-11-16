@@ -62,6 +62,12 @@ class Backend:
    if path.endswith('accounts:batchGet'):
     start=int(params.get('nextPageToken',['0'])[0]);size=int(params.get('maxResults',['1000'])[0]);users=list(self.users.values());return self.reply(route,{'users':users[start:start+size],**({'nextPageToken':str(start+size)} if start+size<len(users) else {})})
    if path.endswith('accounts:lookup'):return self.reply(route,{'users':[self.users[u] for u in body.get('localId',[]) if u in self.users]})
+   if path.endswith('accounts:update'):
+    uid=body['localId']
+    if 'auth-update/'+uid in self.fail_once:
+     self.fail_once.remove('auth-update/'+uid);return self.reply(route,{'error':{'message':'Fallo de Auth simulado'}},503)
+    if uid not in self.users:return self.reply(route,{'error':{'message':'not found'}},404)
+    self.users[uid]['disabled']=bool(body.get('disableUser'));return self.reply(route,{'localId':uid})
    if path.endswith('accounts:delete'):
     self.deletions.append('auth/'+body['localId']);self.users.pop(body['localId'],None);return self.reply(route,{})
   if 'firebaseio' in url.netloc:
@@ -73,6 +79,10 @@ class Backend:
   rel=path.split('/documents',1)[1].lstrip('/')
   if rel==':batchGet':
    return self.reply(route,[{'found':self.docs[name.split('/documents/')[1]]} if name.split('/documents/')[1] in self.docs else {'missing':name} for name in body.get('documents',[])])
+  if rel==':runAggregationQuery':
+   q=body['structuredAggregationQuery']['structuredQuery'];condition=q['where']['fieldFilter'];uid=condition['value']['stringValue']
+   count=sum(1 for d in self.direct('reports') if d['fields'].get('authorUid',{}).get('stringValue')==uid)
+   return self.reply(route,[{'result':{'aggregateFields':{'total':{'integerValue':str(count)}}}}])
   if rel==':beginTransaction':return self.reply(route,{'transaction':'qa-transaction'})
   if rel==':rollback':return self.reply(route,{})
   if rel==':commit':
@@ -197,6 +207,28 @@ with sync_playwright() as p:
   page.get_by_role('button',name='Cargar más usuarios').click();expect(page.locator('#user-rows tr')).to_have_count(len(backend.users))
   page.locator('#user-filter').fill('Ada Gómez');expect(page.locator('#user-rows tr')).to_have_count(1);expect(page.locator('#user-rows')).to_contain_text('Google')
   page.locator('#user-filter').fill('Invitado <b>Seguro</b>');expect(page.locator('#user-rows tr')).to_have_count(1);expect(page.locator('#user-rows')).to_contain_text('Invitado <b>Seguro</b>');expect(page.locator('#user-rows b')).to_have_count(0)
+  # Operaciones confirmadas; fallos parciales reparables, cuenta administradora protegida.
+  page.locator('#user-filter').fill('');expect(page.locator('[data-user-row="qa-admin"]')).to_have_count(1)
+  assert page.locator('[data-user-row="qa-admin"] [data-user-action]').count()==0
+  backend.put('reports/active-authored',authorUid='active',status='rejected',createdAt=stamp(NOW),title='Se conserva al eliminar cuenta')
+  page.get_by_role('button',name='Actualizar usuarios').click()
+  target=page.locator('[data-user-row="active"]');expect(target.locator('[data-user-count]')).to_have_text('1')
+  expect(page.locator('[data-user-row="idle-return"] [data-user-count]')).to_have_text(str(sum(1 for d in backend.direct('reports') if d['fields'].get('authorUid',{}).get('stringValue')=='idle-return')))
+  page.once('dialog',lambda dialog:dialog.dismiss());target.get_by_role('button',name='Bloquear',exact=True).click();assert not backend.users['active'].get('disabled') and 'accountBlocks/active' not in backend.docs
+  backend.fail_once.add('auth-update/active');page.once('dialog',lambda dialog:dialog.accept());target.get_by_role('button',name='Bloquear',exact=True).click();expect(page.locator('.dash-status')).to_contain_text('No se completó')
+  assert 'accountBlocks/active' in backend.docs and backend.getrt('blockedUsers/active') is True
+  page.get_by_role('button',name='Actualizar usuarios').click();expect(target).to_contain_text('Bloqueo incompleto')
+  page.once('dialog',lambda dialog:dialog.accept());target.get_by_role('button',name='Completar bloqueo').click();expect(target).to_contain_text('Bloqueada');assert backend.users['active']['disabled'] is True
+  page.once('dialog',lambda dialog:dialog.accept());target.get_by_role('button',name='Desbloquear').click();expect(target).to_contain_text('Activa');assert backend.users['active']['disabled'] is False and 'accountBlocks/active' not in backend.docs and backend.getrt('blockedUsers/active') is None
+  backend.put('profiles/active',alias='Privado');backend.put('publishLimits/active',count=2);backend.fail_once.add('profiles/active')
+  page.once('dialog',lambda dialog:dialog.accept());target.get_by_role('button',name='Eliminar',exact=True).click();expect(page.locator('.dash-status')).to_contain_text('limpieza privada quedó pendiente')
+  assert 'active' not in backend.users and 'maintenanceUserJobs/active' in backend.docs and 'reports/active-authored' in backend.docs
+  page.get_by_role('button',name='Limpieza manual',exact=True).click();page.get_by_role('button',name='Actualizar revisión').click();expect(page.locator('.retention-pending')).to_contain_text('1 trabajos')
+  page.once('dialog',lambda dialog:dialog.accept());page.locator('[data-maint=run]').click();expect(page.locator('.dash-status')).to_contain_text('0 errores',timeout=30000)
+  assert 'maintenanceUserJobs/active' not in backend.docs and 'publishLimits/active' not in backend.docs and 'userPrefs/active' not in backend.docs and 'profiles/active' not in backend.docs
+  assert 'accountBlocks/active' in backend.docs and backend.getrt('blockedUsers/active') is True and 'reports/active-authored' in backend.docs
+  page.get_by_role('button',name='Usuarios',exact=True).click();page.get_by_role('button',name='Actualizar usuarios').click();expect(page.locator('[data-user-row="active"]')).to_have_count(0)
+  print('PASS gestión de usuarios',width,'contador, protección del administrador, cancelación, bloqueo parcial/reparación, desbloqueo, borrado reanudable y conservación de publicaciones')
   page.locator('#user-filter').fill('');page.wait_for_timeout(200);page.screenshot(path=str(artifacts/f'users-{width}.png'),full_page=True)
   assert 'profiles/active' not in backend.docs
   print('PASS directorio privado',width,'Google, apodo de invitado, paginación, búsqueda y escape HTML')
@@ -205,7 +237,7 @@ with sync_playwright() as p:
  # Acceso a Usuarios sin autorización previa: la consulta es solo lectura.
  backend=Backend();backend.users['qa-admin'].update({'displayName':'Ada Gómez','providerUserInfo':[{'providerId':'google.com'}]});backend.put('userPrefs/active',alias='Apodo privado')
  page=browser.new_page(viewport={'width':390,'height':900});page.route('https://**/*',lambda route:route.abort());page.route('https://firestore.googleapis.com/**',backend.api);page.route('https://identitytoolkit.googleapis.com/**',backend.api);page.route('https://funados-todos-default-rtdb.firebaseio.com/**',backend.api);page.route('**/__qa/**',backend.local);page.route('https://www.gstatic.com/firebasejs/**',sdk);page.route('**/assets/dashboard.js*',dashboard_module)
- page.goto('http://127.0.0.1:5000/dashboard.html');page.get_by_role('button',name='Usuarios',exact=True).click();expect(page.get_by_role('button',name='Autorizar consulta de usuarios')).to_be_visible();page.get_by_role('button',name='Autorizar consulta de usuarios').click();expect(page.locator('#user-rows')).to_contain_text('Apodo privado');assert len(backend.deletions)==0;assert len(backend.users)==4;page.close()
+ page.goto('http://127.0.0.1:5000/dashboard.html');page.get_by_role('button',name='Usuarios',exact=True).click();expect(page.get_by_role('button',name='Autorizar gestión de usuarios')).to_be_visible();page.get_by_role('button',name='Autorizar gestión de usuarios').click();expect(page.locator('#user-rows')).to_contain_text('Apodo privado');assert len(backend.deletions)==0;assert len(backend.users)==4;page.close()
  print('PASS directorio: autorización privada sin ejecutar mantenimiento')
  # Las cuentas en margen se muestran, pero no se pueden seleccionar.
  for mode in ['grace','unauthorized']:

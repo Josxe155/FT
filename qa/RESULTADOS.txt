@@ -301,3 +301,28 @@ Operación administrada y límite por hora (16/11/2026)
   archivos, borrador conservado y contador=3. Ilustraciones locales cargadas
   y visor sin enlaces download. Retirados los tres registros, adjuntos,
   contador y la única cuenta ficticia de esta prueba.
+
+Gestión privada de usuarios y fotos locales (16/11/2026)
+- PASS permisos IAM existentes del propietario: lectura/actualización/borrado
+  de cuentas, lectura/agregación/escritura de datos y acceso administrativo RTDB.
+- Usuarios: contador por agregación (todos los estados conservados), estado,
+  bloquear, completar bloqueo, desbloquear y eliminar con confirmación.
+- PASS dashboard 390/1440: cancelar, proteger administrador, reparar fallo
+  parcial de Auth, reanudar limpieza privada y conservar funas/comentarios.
+- PASS emuladores: reglas existentes, seis reacciones, límite por hora
+  y bloqueo con token previo sin permiso para quitarlo; otra cuenta conserva acceso.
+- PASS regresiones: acceso, 14 cantones, ajustes, Mis funas, TikTok, creación,
+  compartir, reportes, comentarios, respuestas y borradores; 320–1440 px.
+- PASS sensibilidad, vídeo, carrusel y novedades; horizontal 844x390 incluido.
+- PASS TypeScript, build, mantenimiento, adaptadores y dry-run de ambas reglas.
+- Portovelo y Paccha/Atahualpa: fotografías alternativas de Wikimedia Commons
+  locales, originales sin modificar, atribución y licencias visibles en el pie.
+- Deploy de Hosting, Firestore y Realtime Database completado.
+- PASS producción con cuenta ficticia: contador=1, publicación sin archivo,
+  sensibilidad desactivada, bloquear/cerrar sesión, token anterior denegado,
+  desbloquear y eliminar. La funa se conservó al retirar Auth; los datos
+  privados se eliminaron. Todo el contenido/identidad de QA se retiró al terminar.
+- PASS producción de regresión: seis reacciones, comentarios/respuestas y
+  contador, texto sensible visible, vídeo reproducido, cuatro fotos en novedades,
+  compartir, lector distinto y recarga directa. No aparecieron los 503 anteriores.
+  Los datos y las cuentas ficticias de esta prueba también se retiraron.

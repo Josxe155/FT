@@ -69,3 +69,11 @@ La revisión vigente amplía las reglas a `evidenceUpdates`, con acceso por prop
 `publishLimits/{uid}` es privado y no se puede listar ni borrar desde clientes. La hora y cada actualización provienen de `request.time`. El documento solo puede avanzar acompañado de una publicación nueva del mismo autor; una funa exige el contador correspondiente en `getAfter`. No se permite publicar dos funas con un solo incremento. Tres publicaciones agotan la ventana de una hora, y después se reinicia con la siguiente publicación. Los intentos de falsear la fecha, reiniciar o borrar el contador y la concurrencia se verifican en emuladores. El mantenimiento administrativo elimina el contador al retirar la cuenta.
 
 Estas reglas son un prototipo revisado para este modelo y probado con ataques concretos, no una garantía absoluta. Deben volver a verificarse al cambiar el esquema o ampliar el público.
+
+## Gestión administrativa de cuentas — 16/11/2026
+
+Los marcadores `accountBlocks/{uid}` en Firestore y `blockedUsers/{uid}` en RTDB solo se gestionan mediante las APIs administrativas con OAuth/IAM del propietario. Un cliente autenticado puede leer su propio marcador para cerrar la sesión, pero no listarlos ni modificarlos. El resto de accesos de esa cuenta se deniega en reglas mientras el marcador está presente. Los marcadores se conservan al eliminar la cuenta para impedir el acceso con tokens previos al borrado.
+
+El dashboard vuelve a consultar la identidad antes de actuar, protege al administrador y las identidades con claims de protección, y utiliza el control de exclusión del mantenimiento para serializar acciones del panel. Una cuenta bloqueada conserva sus publicaciones para moderación. La cuenta eliminada pierde los datos privados y el acceso, pero sus funas y comentarios se conservan. Los trabajos de limpieza interrumpidos después del borrado de Auth se pueden reanudar. El bloqueo abarca tres servicios y no es una transacción distribuida: los errores parciales se muestran y deben corregirse con Completar bloqueo o Desbloquear.
+
+Los contadores se consultan mediante agregación del servidor con el permiso administrativo; un error se muestra como No disponible, nunca como cero. Las cuentas de invitado nuevas siguen siendo identidades distintas.

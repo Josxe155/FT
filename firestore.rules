@@ -11,7 +11,8 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signed() { return request.auth != null; }
+    function signed() { return request.auth != null
+      && !exists(/databases/$(database)/documents/accountBlocks/$(request.auth.uid)); }
     // La identidad proviene de un token de Firebase Authentication firmado, no del navegador.
     function admin() { return signed() && request.auth.token.get('email_verified', false) == true && request.auth.token.get('email', '') == 'alexander155alvarado@gmail.com'; }
     function canton(c) { return c in ['arenillas','atahualpa','balsas','chilla','el-guabo','huaquillas','las-lajas','machala','marcabeli','pasaje','pinas','portovelo','santa-rosa','zaruma']; }
@@ -127,6 +128,11 @@ service cloud.firestore {
         && !exists(/databases/$(database)/documents/reports/$(d.lastReportId))
         && getAfter(/databases/$(database)/documents/reports/$(d.lastReportId)).data.authorUid == uid
         && getAfter(/databases/$(database)/documents/reports/$(d.lastReportId)).data.createdAt == request.time;
+    }
+    // Solo las APIs administrativas con IAM gestionan estos bloqueos.
+    match /accountBlocks/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list, write: if false;
     }
     match /publishLimits/{uid} {
       allow get: if signed() && request.auth.uid == uid;

@@ -2,6 +2,7 @@ const cfg = window.FUNADOS_FIREBASE_CONFIG || {};
 export const firebaseEnabled = Boolean(cfg.apiKey && !String(cfg.apiKey).includes('REEMPLAZAR') && cfg.projectId && !String(cfg.projectId).includes('REEMPLAZAR'));
 let modules = null;
 let auth, db, rtdb;
+let stopAccountBlock = () => { };
 // La versión CDN es compatible con Live Server. No hay secretos en la config pública.
 const origin = 'https://www.gstatic.com/firebasejs/11.10.0';
 const REPORT_PAGE_SIZE = 100;
@@ -34,7 +35,16 @@ export async function initFirebase(onUser) {
             }
         }
         modules = { authMod, firestore, database };
-        authMod.onAuthStateChanged(auth, (u) => onUser(u ? { uid: u.uid, alias: u.displayName || (u.isAnonymous ? 'Invitado' : 'Mi cuenta'), photoURL: u.photoURL || '', isAnonymous: u.isAnonymous } : null));
+        authMod.onAuthStateChanged(auth, (u) => {
+            stopAccountBlock();
+            stopAccountBlock = () => { };
+            onUser(u ? { uid: u.uid, alias: u.displayName || (u.isAnonymous ? 'Invitado' : 'Mi cuenta'), photoURL: u.photoURL || '', isAnonymous: u.isAnonymous } : null);
+            if (u && database && rtdb)
+                stopAccountBlock = database.onValue(database.ref(rtdb, 'blockedUsers/' + u.uid), (snap) => {
+                    if (snap.val() === true && auth.currentUser?.uid === u.uid)
+                        void authMod.signOut(auth);
+                }, () => { });
+        });
         return true;
     }
     catch (err) {
@@ -373,7 +383,7 @@ export function trackPresence(user, onCount) {
     const d = modules.database, path = d.ref(rtdb, `presence/${user.uid}`);
     const connection = d.ref(rtdb, '.info/connected');
     const unsubC = d.onValue(connection, (s) => { if (s.val()) {
-        d.onDisconnect(path).remove();
+        d.onDisconnect(path).remove().catch(() => { });
         d.set(path, { online: true, lastSeen: d.serverTimestamp() }).catch(() => { });
     } });
     // No hay lectura masiva de presence: sería un permiso de privacidad incorrecto.

@@ -4,8 +4,8 @@
     ".write": false,
     "presence": {
       "$uid": {
-        ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid",
+        ".read": "(auth != null && root.child('blockedUsers').child(auth.uid).val() !== true) && auth.uid === $uid",
+        ".write": "(auth != null && root.child('blockedUsers').child(auth.uid).val() !== true) && auth.uid === $uid",
         ".validate": "newData.hasChildren(['online','lastSeen']) && newData.child('online').isBoolean() && newData.child('lastSeen').isNumber()",
         "online": {
           ".validate": true
@@ -19,9 +19,9 @@
       }
     },
     "visits": {
-      ".read": "auth != null && auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'",
+      ".read": "(auth != null && root.child('blockedUsers').child(auth.uid).val() !== true) && auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'",
       "$uid": {
-        ".write": "auth != null && auth.uid === $uid && !data.exists()",
+        ".write": "(auth != null && root.child('blockedUsers').child(auth.uid).val() !== true) && auth.uid === $uid && !data.exists()",
         ".validate": "newData.hasChildren(['firstSeen']) && newData.child('firstSeen').isNumber() && newData.child('firstSeen').val() === now",
         "firstSeen": {
           ".validate": true
@@ -34,12 +34,12 @@
     "evidence": {
       "$uid": {
         "$reportId": {
-          ".read": "auth != null && root.child('blockedEvidence').child($reportId).val() !== true && (auth.uid === $uid || (root.child('evidenceVisibility').child($uid).child($reportId).child('visible').val() === true || (root.child('evidenceVisibility').child($reportId).child('visible').val() === true && root.child('evidenceVisibility').child($reportId).child('ownerUid').val() === $uid)) || (auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'))",
+          ".read": "(auth != null && root.child('blockedUsers').child(auth.uid).val() !== true) && root.child('blockedEvidence').child($reportId).val() !== true && (auth.uid === $uid || (root.child('evidenceVisibility').child($uid).child($reportId).child('visible').val() === true || (root.child('evidenceVisibility').child($reportId).child('visible').val() === true && root.child('evidenceVisibility').child($reportId).child('ownerUid').val() === $uid)) || (auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'))",
           "files": {
             "$slot": {
               ".validate": "$slot.matches(/^[0-9]$/) && newData.hasChild('meta')",
               "meta": {
-                ".write": "auth != null && auth.uid === $uid && $slot.matches(/^[0-9]$/) && !data.exists() && root.child('blockedEvidence').child($reportId).val() !== true",
+                ".write": "(auth != null && root.child('blockedUsers').child(auth.uid).val() !== true) && auth.uid === $uid && $slot.matches(/^[0-9]$/) && !data.exists() && root.child('blockedEvidence').child($reportId).val() !== true",
                 ".validate": "newData.hasChildren(['id','ownerUid','name','type','size','chunks','createdAt']) && newData.child('id').val() === $slot && newData.child('ownerUid').val() === $uid && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 90 && newData.child('type').isString() && newData.child('type').val().matches(/^(image\\/(jpeg|png|webp)|video\\/(mp4|webm|quicktime))$/) && newData.child('size').isNumber() && newData.child('size').val() > 0 && newData.child('size').val() <= 10485760 && (!newData.child('type').val().matches(/^image\\//) || newData.child('size').val() <= 5242880) && newData.child('chunks').isNumber() && newData.child('chunks').val() >= 1 && newData.child('chunks').val() <= 220 && newData.child('createdAt').isNumber() && newData.child('createdAt').val() === now && newData.child('chunks').val() % 1 === 0 && newData.child('size').val() % 1 === 0 && newData.child('size').val() > (newData.child('chunks').val() - 1) * 49152 && newData.child('size').val() <= newData.child('chunks').val() * 49152",
                 "id": {
                   ".validate": true
@@ -68,22 +68,22 @@
               },
               "chunks": {
                 "$index": {
-                  ".write": "auth != null && auth.uid === $uid && $slot.matches(/^[0-9]$/) && $index.matches(/^(0|[1-9]|[1-9][0-9]|1[0-9][0-9]|20[0-9]|21[0-9])$/) && root.child('evidence').child($uid).child($reportId).child('files').child($slot).child('meta').exists() && !data.exists() && root.child('blockedEvidence').child($reportId).val() !== true",
+                  ".write": "(auth != null && root.child('blockedUsers').child(auth.uid).val() !== true) && auth.uid === $uid && $slot.matches(/^[0-9]$/) && $index.matches(/^(0|[1-9]|[1-9][0-9]|1[0-9][0-9]|20[0-9]|21[0-9])$/) && root.child('evidence').child($uid).child($reportId).child('files').child($slot).child('meta').exists() && !data.exists() && root.child('blockedEvidence').child($reportId).val() !== true",
                   ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 65536 && newData.val().matches(/^[A-Za-z0-9+\\/=]+$/)"
                 }
               }
             }
           },
-          ".write": "auth != null && !newData.exists() && (auth.uid === $uid || (auth != null && auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'))"
+          ".write": "(auth != null && root.child('blockedUsers').child(auth.uid).val() !== true) && !newData.exists() && (auth.uid === $uid || ((auth != null && root.child('blockedUsers').child(auth.uid).val() !== true) && auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'))"
         }
       },
-      ".read": "auth != null && auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'"
+      ".read": "(auth != null && root.child('blockedUsers').child(auth.uid).val() !== true) && auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'"
     },
     "evidenceVisibility": {
       ".read": false,
       "$uid": {
         "$reportId": {
-          ".write": "auth != null && ((auth.uid === $uid && newData.child('ownerUid').val() === $uid && newData.child('visible').val() === true && (!data.exists() || (data.child('ownerUid').val() === $uid && data.child('visible').val() === true)) && (root.child('evidence').child($uid).child($reportId).child('files').exists() || root.child('evidenceUpdates').child($uid).child($reportId).exists())) || (auth != null && auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'))",
+          ".write": "(auth != null && root.child('blockedUsers').child(auth.uid).val() !== true) && ((auth.uid === $uid && newData.child('ownerUid').val() === $uid && newData.child('visible').val() === true && (!data.exists() || (data.child('ownerUid').val() === $uid && data.child('visible').val() === true)) && (root.child('evidence').child($uid).child($reportId).child('files').exists() || root.child('evidenceUpdates').child($uid).child($reportId).exists())) || ((auth != null && root.child('blockedUsers').child(auth.uid).val() !== true) && auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'))",
           ".validate": "newData.hasChildren(['ownerUid','visible']) && newData.child('ownerUid').isString() && newData.child('visible').isBoolean()",
           "ownerUid": {
             ".validate": true
@@ -100,14 +100,14 @@
     "blockedEvidence": {
       ".read": false,
       "$reportId": {
-        ".write": "auth != null && auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'",
+        ".write": "(auth != null && root.child('blockedUsers').child(auth.uid).val() !== true) && auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'",
         ".validate": "newData.isBoolean()"
       }
     },
     "activity": {
       "$uid": {
-        ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid && newData.exists()",
+        ".read": "(auth != null && root.child('blockedUsers').child(auth.uid).val() !== true) && auth.uid === $uid",
+        ".write": "(auth != null && root.child('blockedUsers').child(auth.uid).val() !== true) && auth.uid === $uid && newData.exists()",
         ".validate": "newData.hasChildren(['lastActiveAt'])",
         "lastActiveAt": {
           ".validate": "newData.isNumber() && newData.val() === now"
@@ -116,20 +116,20 @@
           ".validate": false
         }
       },
-      ".read": "auth != null && auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'"
+      ".read": "(auth != null && root.child('blockedUsers').child(auth.uid).val() !== true) && auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'"
     },
     "evidenceUpdates": {
-      ".read": "auth != null && auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'",
+      ".read": "(auth != null && root.child('blockedUsers').child(auth.uid).val() !== true) && auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'",
       "$uid": {
         "$reportId": {
-          ".write": "(auth != null && auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com') && !newData.exists()",
+          ".write": "((auth != null && root.child('blockedUsers').child(auth.uid).val() !== true) && auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com') && !newData.exists()",
           "$updateId": {
-            ".read": "auth != null && root.child('blockedEvidence').child($reportId).val() !== true && (auth.uid === $uid || (root.child('evidenceVisibility').child($uid).child($reportId).child('visible').val() === true || (root.child('evidenceVisibility').child($reportId).child('visible').val() === true && root.child('evidenceVisibility').child($reportId).child('ownerUid').val() === $uid)) || (auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'))",
+            ".read": "(auth != null && root.child('blockedUsers').child(auth.uid).val() !== true) && root.child('blockedEvidence').child($reportId).val() !== true && (auth.uid === $uid || (root.child('evidenceVisibility').child($uid).child($reportId).child('visible').val() === true || (root.child('evidenceVisibility').child($reportId).child('visible').val() === true && root.child('evidenceVisibility').child($reportId).child('ownerUid').val() === $uid)) || (auth.token.email_verified === true && auth.token.email === 'alexander155alvarado@gmail.com'))",
             "files": {
               "$slot": {
                 ".validate": "$slot.matches(/^[0-3]$/) && newData.hasChild('meta')",
                 "meta": {
-                  ".write": "auth != null && auth.uid === $uid && $slot.matches(/^[0-3]$/) && !data.exists() && root.child('blockedEvidence').child($reportId).val() !== true",
+                  ".write": "(auth != null && root.child('blockedUsers').child(auth.uid).val() !== true) && auth.uid === $uid && $slot.matches(/^[0-3]$/) && !data.exists() && root.child('blockedEvidence').child($reportId).val() !== true",
                   ".validate": "newData.hasChildren(['id','ownerUid','name','type','size','chunks','createdAt']) && newData.child('id').val() === $slot && newData.child('ownerUid').val() === $uid && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 90 && newData.child('type').isString() && newData.child('type').val().matches(/^image\\/(jpeg|png|webp)$/) && newData.child('size').isNumber() && newData.child('size').val() > 0 && newData.child('size').val() <= 10485760 && (!newData.child('type').val().matches(/^image\\//) || newData.child('size').val() <= 5242880) && newData.child('chunks').isNumber() && newData.child('chunks').val() >= 1 && newData.child('chunks').val() <= 220 && newData.child('createdAt').isNumber() && newData.child('createdAt').val() === now && newData.child('chunks').val() % 1 === 0 && newData.child('size').val() % 1 === 0 && newData.child('size').val() > (newData.child('chunks').val() - 1) * 49152 && newData.child('size').val() <= newData.child('chunks').val() * 49152",
                   "id": {
                     ".validate": true
@@ -158,15 +158,21 @@
                 },
                 "chunks": {
                   "$index": {
-                    ".write": "auth != null && auth.uid === $uid && $slot.matches(/^[0-3]$/) && $index.matches(/^(0|[1-9]|[1-9][0-9]|1[0-9][0-9]|20[0-9]|21[0-9])$/) && root.child('evidenceUpdates').child($uid).child($reportId).child($updateId).child('files').child($slot).child('meta').exists() && !data.exists() && root.child('blockedEvidence').child($reportId).val() !== true",
+                    ".write": "(auth != null && root.child('blockedUsers').child(auth.uid).val() !== true) && auth.uid === $uid && $slot.matches(/^[0-3]$/) && $index.matches(/^(0|[1-9]|[1-9][0-9]|1[0-9][0-9]|20[0-9]|21[0-9])$/) && root.child('evidenceUpdates').child($uid).child($reportId).child($updateId).child('files').child($slot).child('meta').exists() && !data.exists() && root.child('blockedEvidence').child($reportId).val() !== true",
                     ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 65536 && newData.val().matches(/^[A-Za-z0-9+\\/=]+$/)"
                   }
                 }
               }
             },
-            ".write": "auth != null && auth.uid === $uid && !newData.exists()"
+            ".write": "(auth != null && root.child('blockedUsers').child(auth.uid).val() !== true) && auth.uid === $uid && !newData.exists()"
           }
         }
+      }
+    },
+    "blockedUsers": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": false
       }
     }
   }

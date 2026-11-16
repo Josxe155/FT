@@ -91,3 +91,9 @@ Los emojis de publicaciones crecen de 18 a 26 px según la pantalla; en comentar
 ## Operación administrada — 16/11/2026
 
 Se incorpora límite de tres funas por cuenta y hora, atómico entre publicación y contador privado, sin excepción para Google o invitados. El contador no puede borrarse ni reiniciarse antes de tiempo desde el cliente. El administrador mantiene la limpieza manual. Se retiran descargas del visor, dashboard y mensajes del reproductor. Atahualpa y Portovelo usan ilustraciones locales originales para eliminar las solicitudes de imágenes que devolvían 503.
+
+## Usuarios: gestión privada
+
+Se incorporan totales de funas por UID, estado de acceso, bloqueo/desbloqueo y eliminación confirmada de cuentas. Se protegen las identidades administrativas, se conserva el contenido publicado al eliminar una cuenta y se permiten completar bloqueos parciales y reanudar limpieza privada interrumpida. Reglas y dashboard se prueban con cuentas ficticias.
+
+Las ilustraciones temporales de Atahualpa y Portovelo se sustituyen por dos fotografías alternativas de los cantones obtenidas en Wikimedia Commons, con atribución y licencia en el pie de la página. Se sirven localmente desde Hosting para no depender de sus proveedores durante la navegación.

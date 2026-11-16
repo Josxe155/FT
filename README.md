@@ -208,3 +208,11 @@ Cada cuenta Google o invitada puede publicar **3 funas por ventana de una hora**
 El límite es por cuenta, no por persona ni dirección IP. Crear otra cuenta invitada puede eludir esa identidad; App Check y controles globales siguen siendo mejoras futuras. La aplicación se opera con administración y moderación continuas.
 
 Prueba específica: `node qa/test_publish_limits.mjs`, dentro del emulador de Firestore.
+
+## 👥 Administración de usuarios
+
+En Dashboard → Usuarios, autoriza con la cuenta propietaria. Cada fila muestra nombre de Google o apodo de invitado, número de funas conservadas (todos los estados), estado de acceso y acciones con confirmación: **Bloquear**, **Desbloquear** y **Eliminar**. La cuenta administradora y las identidades marcadas como protegidas no admiten estas acciones.
+
+El bloqueo deshabilita Authentication, revoca la sesión y añade marcadores privados en Firestore y RTDB para denegar también las solicitudes de tokens todavía vigentes. La eliminación retira la cuenta y los datos privados, y conserva sus publicaciones y comentarios para moderación. Si se interrumpe la limpieza tras eliminar Authentication, puede reanudarse desde Limpieza manual. No se elimina la cuenta personal de Google. Un invitado puede crear una identidad nueva.
+
+Los tokens OAuth administrativos permanecen solo en memoria, con caducidad; las operaciones requieren permisos IAM del propietario y no se conceden a usuarios normales mediante reglas. Si falla un servicio, el panel informa del estado parcial y permite completar el bloqueo o desbloquear tras actualizar la lista.

@@ -60,7 +60,7 @@ export function createMaintenance({cfg,auth,rtdb,mod,admin,onChange,onFinished=(
   const totals=stats?fieldsOf(stats):{like:0,wow:0,concern:0};
   return {...data,id,eligible:eligiblePost(data,totals,state.now,comments.length>0)&&votes.length===0,counts:totals};
  }
- function userInfo(user){let claims={};try{claims=JSON.parse(user.customAttributes||'{}');}catch{}return {uid:user.localId,email:user.email||'',name:user.displayName||user.email||'Invitado',createdAt:user.createdAt,lastLoginAt:user.lastLoginAt,customClaims:claims};}
+ function userInfo(user){let claims={};try{claims=JSON.parse(user.customAttributes||'{}');}catch{}return {uid:user.localId,email:user.email||'',name:user.displayName||user.email||'Invitado',createdAt:user.createdAt,lastLoginAt:user.lastLoginAt,disabled:Boolean(user.disabled),customClaims:claims};}
  async function lookupUser(uid){const data=await request(identity+'/accounts:lookup',{localId:[uid]});return data.users?.[0]?userInfo(data.users[0]):null;}
  async function refresh({more=false}={}){
   if(state.busy)return;state.busy=true;state.message='Revisando datos y actividad…';changed();
@@ -145,22 +145,64 @@ export function createMaintenance({cfg,auth,rtdb,mod,admin,onChange,onFinished=(
   const summary=`Finalizado: ${donePosts} publicaciones y ${doneUsers} cuentas eliminadas. ${skipped} conservadas al revisar otra vez. ${errors} errores${errors?'; los trabajos incompletos se pueden reanudar':''}.${lastError?' '+lastError:''}`;
   await refresh();state.message=summary;changed();await onFinished();
  }
- // Directorio privado: Auth aporta el nombre de Google y userPrefs el apodo.
- // Se consulta solo bajo la autorización administrativa temporal ya existente.
+ // Directorio y acciones privadas: OAuth temporal del propietario, sin credenciales de servidor.
+ function protectedUser(user){
+  let claims={};try{claims=JSON.parse(user.customAttributes||'{}');}catch{}
+  return user.localId===auth.currentUser?.uid||String(user.email||'').toLowerCase()===admin||claims.admin===true||claims.retentionProtected===true;
+ }
+ async function publicationCount(uid){
+  const rows=await request(base+':runAggregationQuery',{structuredAggregationQuery:{structuredQuery:{from:[{collectionId:'reports'}],where:{fieldFilter:{field:{fieldPath:'authorUid'},op:'EQUAL',value:{stringValue:uid}}}},aggregations:[{alias:'total',count:{}}]}});
+  const raw=rows.find(row=>row.result?.aggregateFields?.total)?.result.aggregateFields.total;
+  const count=Number(raw?.integerValue??raw?.doubleValue);
+  if(!Number.isSafeInteger(count)||count<0)throw new Error('No se pudo contar las funas.');return count;
+ }
  async function directoryPage(nextPageToken=''){
   if(state.busy)throw new Error('Espera a que termine la operación administrativa.');
   const result=await request(identity+'/accounts:batchGet?maxResults=50'+(nextPageToken?'&nextPageToken='+encodeURIComponent(nextPageToken):''));
-  const users=result.users||[],ids=users.map(user=>user.localId).filter(safeId);
-  const aliases=new Map();
+  const users=result.users||[],ids=users.map(user=>user.localId).filter(safeId),aliases=new Map(),blocks=new Set();
   if(ids.length){
-   const docs=await request(base+':batchGet',{documents:ids.map(uid=>`projects/${cfg.projectId}/databases/(default)/documents/userPrefs/${uid}`)});
-   for(const item of docs){if(item.found){const doc=item.found,uid=doc.name.split('/').pop();aliases.set(uid,String(fieldsOf(doc).alias||'').trim());}}
+   const docs=await request(base+':batchGet',{documents:ids.flatMap(uid=>['userPrefs','accountBlocks'].map(collection=>`projects/${cfg.projectId}/databases/(default)/documents/${collection}/${uid}`))});
+   for(const item of docs)if(item.found){const doc=item.found,uid=doc.name.split('/').pop();if(doc.name.includes('/accountBlocks/'))blocks.add(uid);else aliases.set(uid,String(fieldsOf(doc).alias||'').trim());}
   }
-  return {users:users.map(user=>{
+  const realtimeBlocks=await request(cfg.databaseURL.replace(/\/$/,'')+'/blockedUsers.json')||{};
+  const entries=users.filter(user=>safeId(user.localId)).map(user=>{
    const google=(user.providerUserInfo||[]).find(provider=>provider.providerId==='google.com');
    const guest=!google&&!user.email&&!(user.providerUserInfo||[]).length;
-   return {uid:user.localId,name:google?(user.displayName||google.displayName||'Cuenta de Google sin nombre'):guest?(aliases.get(user.localId)||user.displayName||'Invitado sin apodo'):(user.displayName||'Cuenta sin nombre'),provider:google?'Google':guest?'Invitado':'Otra cuenta',createdAt:Number(user.createdAt)||0};
-  }),nextPageToken:result.nextPageToken||''};
+   return {uid:user.localId,name:google?(user.displayName||google.displayName||'Cuenta de Google sin nombre'):guest?(aliases.get(user.localId)||user.displayName||'Invitado sin apodo'):(user.displayName||'Cuenta sin nombre'),provider:google?'Google':guest?'Invitado':'Otra cuenta',createdAt:Number(user.createdAt)||0,protected:protectedUser(user),blocked:Boolean(user.disabled||blocks.has(user.localId)||realtimeBlocks[user.localId]===true),blockComplete:Boolean(user.disabled&&blocks.has(user.localId)&&realtimeBlocks[user.localId]===true),reportCount:null};
+  });
+  await pool(entries,async entry=>{try{entry.reportCount=await publicationCount(entry.uid);}catch{entry.reportCount=null;}});
+  return {users:entries,nextPageToken:result.nextPageToken||''};
+ }
+ async function blockAccount(uid){
+  await commit([write('accountBlocks/'+uid,{blockedAt:new Date(state.now)})]);
+  await realtimeSet('blockedUsers/'+uid,true);
+  await request(identity+'/accounts:update',{localId:uid,disableUser:true,validSince:String(Math.floor(state.now/1000))});
+ }
+ async function administerUser(uid,action){
+  if(!safeId(uid)||!['block','unblock','delete'].includes(action))throw new Error('Acción o cuenta no válida.');
+  if(state.busy||!state.connected)throw new Error('Autoriza la administración con Google.');
+  state.busy=true;changed();let acquired=false,deleted=false;
+  try{
+   await acquire();acquired=true;
+   const data=await request(identity+'/accounts:lookup',{localId:[uid]}),raw=data.users?.find(user=>user.localId===uid);
+   if(!raw)throw new Error('La cuenta ya no existe. Actualiza los usuarios.');
+   if(protectedUser(raw))throw new Error('Esta cuenta administradora o protegida no se puede modificar.');
+   if(action==='unblock'){
+    await request(identity+'/accounts:update',{localId:uid,disableUser:false});
+    await removeRealtime(['blockedUsers/'+uid]);await removeDoc('accountBlocks/'+uid);
+    return {blocked:false,blockComplete:false};
+   }
+   await blockAccount(uid);
+   if(action==='block')return {blocked:true,blockComplete:true};
+   // Si se interrumpe después de borrar Auth, Limpieza manual puede terminar los datos privados.
+   await commit([write('maintenanceUserJobs/'+uid,{uid,startedAt:new Date(state.now)})]);
+   await request(identity+'/accounts:delete',{localId:uid});deleted=true;
+   for(const collection of ['profiles','userPrefs','publishLimits'])await removeTree(collection+'/'+uid);
+   await removeRealtime(['activity/'+uid,'presence/'+uid,'visits/'+uid]);await removeDoc('maintenanceUserJobs/'+uid);
+   return {deleted:true};
+  }catch(error){
+   throw new Error(deleted?'La cuenta fue eliminada; la limpieza privada quedó pendiente. Se puede reanudar en Limpieza manual.':error.message+' Si el bloqueo quedó parcial, actualiza y pulsa Completar bloqueo o Desbloquear.');
+  }finally{if(acquired)await release().catch(()=>{state.message='No se pudo liberar el control; expira en 30 minutos.';});state.busy=false;changed();}
  }
  const day=v=>{const n=timestampMillis(v);return n===null?'—':new Date(n).toLocaleString('es-EC');};
  function view(){
@@ -173,5 +215,5 @@ export function createMaintenance({cfg,auth,rtdb,mod,admin,onChange,onFinished=(
   container.querySelectorAll('[data-maint]').forEach(b=>b.onclick=()=>{const a=b.dataset.maint;if(a==='connect')void connect();if(a==='refresh')void refresh();if(a==='more')void refresh({more:true});if(a==='run')void run();if(a==='select-posts'){state.postSelection=new Set(state.posts.slice(0,100).map(p=>p.id));changed();}if(a==='select-users'){state.userSelection=new Set(state.users.filter(u=>u.eligible).slice(0,100).map(u=>u.uid));changed();}});
   container.querySelectorAll('[data-maint-post],[data-maint-user]').forEach(box=>box.onchange=()=>{const isPost=box.dataset.maintPost!==undefined,set=isPost?state.postSelection:state.userSelection,id=isPost?box.dataset.maintPost:box.dataset.maintUser;if(box.checked&&set.size>=100){state.message='Selecciona hasta 100 elementos de cada tipo.';}else if(box.checked)set.add(id);else set.delete(id);changed();});
  }
- return {view,bind,disconnect,directoryPage,authorizeDirectory:()=>connect(false),get connected(){return state.connected&&validAdmin()&&auth.currentUser.uid===connectedUid&&Date.now()<expires;},get busy(){return state.busy;}};
+ return {view,bind,disconnect,directoryPage,administerUser,authorizeDirectory:()=>connect(false),get connected(){return state.connected&&validAdmin()&&auth.currentUser.uid===connectedUid&&Date.now()<expires;},get busy(){return state.busy;}};
 }
