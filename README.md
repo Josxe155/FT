@@ -190,3 +190,5 @@ Comparte información responsable. Evita amenazas, datos privados y acusaciones 
 ### Seguimiento de publicaciones
 
 Tocar una funa o el número junto al autor y la fecha abre una página propia de actualizaciones, con tarjetas como el listado de funas. No hay botón inferior de Actualizaciones. El autor puede añadir texto y hasta cuatro fotos, incluso publicar solo imágenes. Los demás usuarios pueden leer y ampliar las fotos. Las acciones de comentarios, compartir y reportar tienen controles dedicados. Consulta [multimedia y seguimiento](docs/MULTIMEDIA.md) para límites y comprobaciones.
+
+El contador junto a «Comentarios» incluye comentarios y respuestas aprobados. Se actualiza al publicar o eliminar, y carga el total sin limitarse a los comentarios visibles.

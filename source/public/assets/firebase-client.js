@@ -342,7 +342,7 @@ export function listenReplies(reportId, uid, onData, onError = () => { }) {
     // No abrir escuchas de reacciones para un comentario nuevo aún no confirmado.
     // Los cambios de metadatos aseguran recibir la confirmación del servidor.
     return f.onSnapshot(q, { includeMetadataChanges: true }, (snap) => onData(snap.docs.filter((d) => !d.metadata?.hasPendingWrites || d.data().createdAt != null).map((d) => ({ id: d.id, reportId, ...d.data(),
-        createdAt: d.data().createdAt?.toMillis?.() || Date.now(), editedAt: d.data().editedAt?.toMillis?.() || null })).sort((a, b) => a.createdAt - b.createdAt)), onError);
+        createdAt: d.data().createdAt?.toMillis?.() || Date.now(), editedAt: d.data().editedAt?.toMillis?.() || null })).sort((a, b) => a.createdAt - b.createdAt), !snap.metadata?.fromCache), onError);
 }
 export async function addReply(reportId, text, user) {
     const f = modules.firestore;
@@ -461,6 +461,14 @@ export async function deleteOwnReply(reportId, replyId) {
         throw new Error('Inicia sesión para eliminar.');
     const f = modules.firestore;
     await f.deleteDoc(f.doc(db, 'reports', reportId, 'replies', replyId));
+}
+/** Total de comentarios aprobados, incluidas las respuestas; sin límite de página. */
+export async function countReportReplies(reportId) {
+    if (!modules)
+        return 0;
+    const f = modules.firestore;
+    const snapshot = await f.getCountFromServer(f.query(f.collection(db, 'reports', reportId, 'replies'), f.where('status', '==', 'approved')));
+    return snapshot.data().count;
 }
 export async function countFunaUpdates(reportId) {
     if (!modules)

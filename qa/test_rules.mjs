@@ -1,6 +1,6 @@
 import {readFileSync} from 'node:fs';
 import {initializeTestEnvironment,assertSucceeds,assertFails} from '@firebase/rules-unit-testing';
-import {doc,setDoc,getDoc,updateDoc,collection,query,orderBy,limit,getDocs,getCountFromServer,serverTimestamp as fsTime} from 'firebase/firestore';
+import {doc,setDoc,getDoc,updateDoc,collection,query,where,orderBy,limit,getDocs,getCountFromServer,serverTimestamp as fsTime} from 'firebase/firestore';
 import {ref,set,get,remove,serverTimestamp as rtTime} from 'firebase/database';
 const env=await initializeTestEnvironment({projectId:'demo-funados-security',firestore:{host:'127.0.0.1',port:8086,rules:readFileSync('firestore.rules','utf8')},database:{host:'127.0.0.1',port:9000,rules:readFileSync('database.rules.json','utf8')}});
 const a=env.authenticatedContext('alice'),b=env.authenticatedContext('bob'),anon=env.unauthenticatedContext();
@@ -43,6 +43,17 @@ try{
  await assertSucceeds(getDocs(query(collection(b.firestore(),'reports/test-report/updates'),orderBy('createdAt','desc'),limit(100))));
  await assertFails(getCountFromServer(query(collection(anon.firestore(),'reports/test-report/updates'))));
  console.log('PASS: contador y novedades recientes autorizados; sin sesión denegados');
+ const commentQuery=query(collection(b.firestore(),'reports/test-report/replies'),where('status','==','approved'));
+ await env.withSecurityRulesDisabled(async context=>{
+  await setDoc(doc(context.firestore(),'reports/test-report/replies/count-root'),{reportId:'test-report',text:'Comentario aprobado',authorUid:'alice',status:'approved',createdAt:fsTime()});
+  await setDoc(doc(context.firestore(),'reports/test-report/replies/count-child'),{reportId:'test-report',text:'Respuesta aprobada',authorUid:'alice',status:'approved',parentId:'count-root',createdAt:fsTime()});
+  await setDoc(doc(context.firestore(),'reports/test-report/replies/count-hidden'),{reportId:'test-report',text:'Comentario retirado',authorUid:'alice',status:'rejected',createdAt:fsTime()});
+ });
+ const counted=await assertSucceeds(getCountFromServer(commentQuery));
+ if(counted.data().count!==2)throw Error('El contador debe incluir respuestas y excluir retirados');
+ await assertFails(getCountFromServer(query(collection(anon.firestore(),'reports/test-report/replies'),where('status','==','approved'))));
+ console.log('PASS: contador de comentarios, respuestas incluidas, retirados excluidos y sin sesión denegado');
+
  await assertFails(setDoc(doc(b.firestore(),'reports/test-report/updates/forged'),{reportId:'test-report',text:'Un tercero no puede suplantar al autor.',authorUid:'bob',createdAt:fsTime(),media:[]}));
  await assertFails(setDoc(doc(a.firestore(),'reports/test-report/updates/too-many'),{reportId:'test-report',text:'Una actualización con demasiadas fotos.',authorUid:'alice',createdAt:fsTime(),media:Array.from({length:5},(_,i)=>({...photo,id:String(i)}))}));
  await assertFails(setDoc(doc(a.firestore(),'reports/test-report/updates/large-photo'),{reportId:'test-report',text:'Fotos de actualización limitadas a cinco megabytes.',authorUid:'alice',createdAt:fsTime(),media:[{...photo,size:6*1024*1024,chunks:128}]}));

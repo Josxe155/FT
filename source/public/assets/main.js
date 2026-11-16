@@ -1,6 +1,6 @@
 import { videoPlayerMarkup, safeMediaFilename } from './media-ui.js';
 import { cantons, cantonMap } from './cantons.js';
-import { firebaseEnabled, initFirebase, loginGoogle, loginGuest, logoutFirebase, saveAlias, listenReports, loadMoreReports, hasMoreReports, getCantonTotals, listenReplies, addReport, realtimeMediaAvailable, loadEvidenceURL, clearEvidenceCache, flagReport, saveTikTok, deleteTikTok, listenTikTok, trackVisit, trackActivity, listenReactionSummary, setReaction, addNestedReply, editReplyText, deleteOwnReply, listenFunaUpdates, countFunaUpdates, addFunaUpdate, listenCommentReactionSummary, setCommentReaction, fetchReportById, countMyReports } from './firebase-client.js';
+import { firebaseEnabled, initFirebase, loginGoogle, loginGuest, logoutFirebase, saveAlias, listenReports, loadMoreReports, hasMoreReports, getCantonTotals, listenReplies, countReportReplies, addReport, realtimeMediaAvailable, loadEvidenceURL, clearEvidenceCache, flagReport, saveTikTok, deleteTikTok, listenTikTok, trackVisit, trackActivity, listenReactionSummary, setReaction, addNestedReply, editReplyText, deleteOwnReply, listenFunaUpdates, countFunaUpdates, addFunaUpdate, listenCommentReactionSummary, setCommentReaction, fetchReportById, countMyReports } from './firebase-client.js';
 const app = document.getElementById('app');
 const modal = document.getElementById('modal-root');
 const toasts = document.getElementById('toasts');
@@ -17,6 +17,8 @@ let updatePhotoPreviews = [];
 let sharePostId = '';
 const updateCounts = new Map(), updateCountPending = new Set(), updateCountFailures = new Map();
 let updateCountObserver = null, updateCountEpoch = 0;
+const replyCountCache = new Map(), replyCountPending = new Set(), replyCountDirty = new Set(), replyCountFailures = new Map();
+let replyCountObserver = null;
 let stopReports = () => { }, stopReplies = () => { }, stopTikTok = () => { }, stopPresence = () => { }, stopActivity = () => { }, stopUpdates = () => { };
 // La decisión de ver una funa sensible dura solo hasta salir de la sesión.
 const revealedSensitivePosts = new Set();
@@ -403,7 +405,7 @@ function reportCard(r) {
     const sensitive = r.sensitiveContent === true && galleryItems(r).length > 0;
     const concealed = sensitive && !revealedSensitivePosts.has(r.id);
     const badge = sensitive && !concealed ? `<div class="sensitive-showing"><span>${icons.eyeOff} Contenido sensible</span><button type="button" data-action="hide-sensitive" data-id="${esc(r.id)}">Ocultar contenido</button></div>` : '';
-    return `<article class="report-card" data-open-updates="${esc(r.id)}"><div class="report-top">${tiktokAuthor(r)}<div class="report-meta"><time>${formatDate(r.createdAt)}</time>${updateCounter(r)}</div></div>${badge}<h2><button class="report-title-link" type="button" data-action="updates" data-id="${esc(r.id)}">${esc(r.title)}</button></h2><p class="report-copy">${esc(r.description)}</p>${concealed ? sensitiveGate(r.id) : evidenceMarkup(r)}<div class="reactions-bar" data-id="${esc(r.id)}" aria-label="Reacciones a la publicación">${reactionKinds.map(([kind, emoji, label]) => `<button class="react-button ${currentMyReaction(r.id) === kind ? 'react-selected' : ''}" type="button" data-action="react" data-id="${esc(r.id)}" data-kind="${kind}" aria-label="${label}" aria-pressed="${currentMyReaction(r.id) === kind}"><span class="react-emoji" aria-hidden="true">${emoji}</span><span class="react-label">${label}</span><span class="react-number">${currentReactionCounts(r.id)[kind]}</span></button>`).join('')}</div><div class="report-bottom"><button class="text-action ${state.thread === r.id ? 'action-active' : ''}" type="button" data-action="thread" data-id="${esc(r.id)}" aria-expanded="${state.thread === r.id}" aria-controls="comments-${esc(r.id)}">${icons.reply} Comentarios${firebaseEnabled ? '' : ` · ${countR(r.id)}`}</button><button class="text-action" type="button" data-action="share" data-id="${esc(r.id)}">${icons.share} Compartir</button><button class="text-action subtle-action" type="button" data-action="flag" data-id="${esc(r.id)}" aria-label="Reportar esta publicación">${icons.flag} Reportar</button></div>${state.thread === r.id ? threadInline(r.id) : ''}</article>`;
+    return `<article class="report-card" data-open-updates="${esc(r.id)}"><div class="report-top">${tiktokAuthor(r)}<div class="report-meta"><time>${formatDate(r.createdAt)}</time>${updateCounter(r)}</div></div>${badge}<h2><button class="report-title-link" type="button" data-action="updates" data-id="${esc(r.id)}">${esc(r.title)}</button></h2><p class="report-copy">${esc(r.description)}</p>${concealed ? sensitiveGate(r.id) : evidenceMarkup(r)}<div class="reactions-bar" data-id="${esc(r.id)}" aria-label="Reacciones a la publicación">${reactionKinds.map(([kind, emoji, label]) => `<button class="react-button ${currentMyReaction(r.id) === kind ? 'react-selected' : ''}" type="button" data-action="react" data-id="${esc(r.id)}" data-kind="${kind}" aria-label="${label}" aria-pressed="${currentMyReaction(r.id) === kind}"><span class="react-emoji" aria-hidden="true">${emoji}</span><span class="react-label">${label}</span><span class="react-number">${currentReactionCounts(r.id)[kind]}</span></button>`).join('')}</div><div class="report-bottom"><button class="text-action ${state.thread === r.id ? 'action-active' : ''}" type="button" data-action="thread" data-id="${esc(r.id)}" aria-label="Comentarios" aria-describedby="comment-count-${esc(r.id)}" aria-expanded="${state.thread === r.id}" aria-controls="comments-${esc(r.id)}">${icons.reply}<span>Comentarios</span><span class="comment-count" id="comment-count-${esc(r.id)}" data-comment-count="${esc(r.id)}">${knownReplyCount(r.id) ?? (replyCountFailures.has(r.id) ? '—' : '…')}</span></button><button class="text-action" type="button" data-action="share" data-id="${esc(r.id)}">${icons.share} Compartir</button><button class="text-action subtle-action" type="button" data-action="flag" data-id="${esc(r.id)}" aria-label="Reportar esta publicación">${icons.flag} Reportar</button></div>${state.thread === r.id ? threadInline(r.id) : ''}</article>`;
 }
 function cantonView(slug) { const c = cantonMap[slug]; if (!c)
     return homeView(); state.canton = slug; const posts = allReports().filter(r => r.canton === slug && ['approved', 'pending'].includes(r.status)).sort((a, b) => state.sort === 'antiguas' ? a.createdAt - b.createdAt : b.createdAt - a.createdAt); return `<main class="main-area detail-area"><button type="button" class="back-link" data-action="nav" data-page="inicio">${icons.back} Todos los cantones</button><div class="canton-banner">${photo(c)}<div class="banner-overlay"></div><div class="banner-content"><span>CANTÓN</span><h1>${esc(c.name)}</h1><div class="banner-meta">${count(slug)} ${count(slug) === 1 ? 'funa publicada' : 'funas publicadas'}</div></div></div><div class="feed-toolbar"><h2>Funas</h2><div class="feed-actions"><label class="sort-control">Ordenar <select id="sort-posts" aria-label="Orden de las funas"><option value="recientes" ${state.sort === 'recientes' ? 'selected' : ''}>Recientes</option><option value="antiguas" ${state.sort === 'antiguas' ? 'selected' : ''}>Antiguas</option></select></label><button class="button-primary" type="button" data-action="compose">${icons.plus} Añadir funa</button></div></div><section class="feed" aria-label="Funas del cantón">${posts.length ? posts.map(reportCard).join('') : emptyView()}</section>${firebaseEnabled && hasMoreReports() ? '<div class="load-more-row"><button type="button" class="button-primary" data-action="load-more">Cargar más funas ${icons.arrow}</button></div>' : ''}</main>`; }
@@ -495,6 +497,7 @@ function renderInlineThread() {
             editField.focus();
     }
     watchVisibleCommentReactions();
+    syncReplyCount(reportId);
 }
 function toggleInlineThread(reportId) {
     captureUpdateDraft();
@@ -508,12 +511,77 @@ function toggleInlineThread(reportId) {
     state.replyTarget = null;
     state.editReplyId = null;
     if (next && firebaseEnabled && state.user) {
-        stopReplies = listenReplies(next, state.user.uid, replies => { if (state.thread !== next)
-            return; state.remoteReplies = replies; renderInlineThread(); }, (error) => toast('No se pudieron cargar los comentarios: ' + (error?.code || 'comprueba los permisos.'), 'bad'));
+        stopReplies = listenReplies(next, state.user.uid, (replies, confirmed) => { if (state.thread !== next)
+            return; state.remoteReplies = replies; if (confirmed) {
+            if (replies.length < 200) {
+                replyCountCache.set(next, { count: replies.length, at: Date.now() });
+                syncReplyCount(next);
+            }
+            else
+                void loadReplyCount(next, true);
+        } renderInlineThread(); }, (error) => toast('No se pudieron cargar los comentarios: ' + (error?.code || 'comprueba los permisos.'), 'bad'));
     }
     render();
     if (next)
         document.getElementById('comments-' + next)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function knownReplyCount(id) { return firebaseEnabled ? replyCountCache.get(id)?.count : countR(id); }
+function syncReplyCount(id) {
+    const n = knownReplyCount(id);
+    app.querySelectorAll('[data-comment-count]').forEach(el => { if (el.dataset.commentCount === id) {
+        el.textContent = n === undefined ? (replyCountFailures.has(id) ? '—' : '…') : String(n);
+        el.classList.toggle('has-comments', Boolean(n));
+    } });
+}
+async function loadReplyCount(id, force = false) {
+    if (!firebaseEnabled || !state.user || !id)
+        return;
+    if (replyCountPending.has(id)) {
+        if (force)
+            replyCountDirty.add(id);
+        return;
+    }
+    if (!force && Date.now() - (replyCountCache.get(id)?.at || replyCountFailures.get(id) || 0) < 60000)
+        return;
+    const epoch = updateCountEpoch, uid = state.user.uid, started = Date.now();
+    replyCountPending.add(id);
+    try {
+        const count = await countReportReplies(id);
+        if (epoch === updateCountEpoch && state.user?.uid === uid && (replyCountCache.get(id)?.at || 0) <= started) {
+            replyCountCache.set(id, { count, at: Date.now() });
+            replyCountFailures.delete(id);
+            syncReplyCount(id);
+        }
+    }
+    catch {
+        if (epoch === updateCountEpoch) {
+            replyCountFailures.set(id, Date.now());
+            syncReplyCount(id);
+        }
+    }
+    finally {
+        if (epoch === updateCountEpoch) {
+            replyCountPending.delete(id);
+            if (replyCountDirty.delete(id))
+                void loadReplyCount(id, true);
+        }
+    }
+}
+function watchReplyCounts() {
+    replyCountObserver?.disconnect();
+    replyCountObserver = null;
+    if (!firebaseEnabled || !state.user)
+        return;
+    const nodes = [...app.querySelectorAll('[data-comment-count]')];
+    if (typeof IntersectionObserver === 'undefined')
+        nodes.forEach(el => void loadReplyCount(el.dataset.commentCount || ''));
+    else {
+        replyCountObserver = new IntersectionObserver(entries => entries.forEach(entry => { if (entry.isIntersecting) {
+            replyCountObserver?.unobserve(entry.target);
+            void loadReplyCount(entry.target.dataset.commentCount || '');
+        } }), { rootMargin: '120px' });
+        nodes.forEach(el => replyCountObserver.observe(el));
+    }
 }
 function captureUpdateDraft() {
     const input = app.querySelector('#update-text');
@@ -756,8 +824,8 @@ else if (state.updatesPost) {
         if (activeId === 'edit-reply-text')
             field.focus();
     }
-} watchVisibleReactions(); watchVisibleCommentReactions(); watchUpdateCounts(); hydrateEvidence(); }
-function setUser(user) { updateCountEpoch++; updateCounts.clear(); updateCountPending.clear(); updateCountFailures.clear(); updateCountObserver?.disconnect(); resetUpdateFiles(); updateDraftText = ''; updateDraftReportId = ''; postLookups.clear(); finishedPostLookups.clear(); myReportCountRemote = null; revealedSensitivePosts.clear(); if (!user)
+} watchVisibleReactions(); watchVisibleCommentReactions(); watchUpdateCounts(); watchReplyCounts(); hydrateEvidence(); }
+function setUser(user) { updateCountEpoch++; replyCountCache.clear(); replyCountPending.clear(); replyCountDirty.clear(); replyCountFailures.clear(); replyCountObserver?.disconnect(); updateCounts.clear(); updateCountPending.clear(); updateCountFailures.clear(); updateCountObserver?.disconnect(); resetUpdateFiles(); updateDraftText = ''; updateDraftReportId = ''; postLookups.clear(); finishedPostLookups.clear(); myReportCountRemote = null; revealedSensitivePosts.clear(); if (!user)
     clearEvidenceCache(); if (user?.isAnonymous)
     user = { ...user, alias: read(KEY.alias, user.alias || 'Invitado') }; state.user = user; state.remoteReports = []; state.remoteReplies = []; state.cantonTotals = {}; state.currentUpdates = []; state.commentReactions = {}; state.myCommentReactions = {}; state.updatesPost = null; state.replyTarget = null; state.editReplyId = null; stopUpdates(); stopCommentReactionWatch(); state.reactions = {}; state.myReactions = {}; reactionObserver?.disconnect(); reactionObserver = null; stopReactionListeners.forEach(stop => stop()); stopReactionListeners = []; stopReports(); stopReplies(); stopTikTok(); stopPresence(); stopActivity(); if (!user) {
     state.dialogue = null;
@@ -995,6 +1063,12 @@ async function sendReply(form) {
             if (state.replyTarget === parent)
                 state.replyTarget = null;
         }
+        if (state.user?.uid === user.uid) {
+            if (firebaseEnabled)
+                void loadReplyCount(reportId, true);
+            else
+                syncReplyCount(reportId);
+        }
         toast(parent ? 'Respuesta publicada.' : 'Comentario publicado.');
     }
     catch (e) {
@@ -1042,14 +1116,15 @@ async function updateOwnComment(form) {
 async function removeOwnComment(id) {
     if (!state.user || !state.thread)
         return;
-    const reply = allReplies().find(r => r.id === id && r.reportId === state.thread);
+    const reportId = state.thread, userId = state.user.uid;
+    const reply = allReplies().find(r => r.id === id && r.reportId === reportId);
     if (!reply || reply.authorUid !== state.user.uid)
         return;
     if (!window.confirm('¿Eliminar tu comentario? Desaparecerá de la publicación.'))
         return;
     try {
         if (firebaseEnabled)
-            await deleteOwnReply(state.thread, id);
+            await deleteOwnReply(reportId, id);
         else {
             state.replies = state.replies.filter(r => r.id !== id);
             save(KEY.replies, state.replies);
@@ -1061,6 +1136,12 @@ async function removeOwnComment(id) {
             state.replyTarget = null;
         if (state.editReplyId === id)
             state.editReplyId = null;
+        if (state.user?.uid === userId) {
+            if (firebaseEnabled)
+                void loadReplyCount(reportId, true);
+            else
+                syncReplyCount(reportId);
+        }
         renderInlineThread();
         toast('Comentario eliminado.');
     }
@@ -1524,10 +1605,14 @@ else if (state.thread)
     toggleInlineThread(state.thread); });
 window.addEventListener('hashchange', () => { if (location.hash === lastRenderedHash)
     return; state.menu = false; state.search = ''; requestRouteRender(); });
-setInterval(() => { if (document.visibilityState === 'visible' && state.user && !state.dialogue)
-    watchUpdateCounts(); }, 65000);
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && state.user)
-    watchUpdateCounts(); });
+setInterval(() => { if (document.visibilityState === 'visible' && state.user && !state.dialogue) {
+    watchUpdateCounts();
+    watchReplyCounts();
+} }, 65000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && state.user) {
+    watchUpdateCounts();
+    watchReplyCounts();
+} });
 applyPrefs();
 render();
 initFirebase(user => { if (user)

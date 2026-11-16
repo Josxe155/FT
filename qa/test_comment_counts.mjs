@@ -1,0 +1,16 @@
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const context=vm.createContext({window:{FUNADOS_FIREBASE_CONFIG:{apiKey:'qa',projectId:'qa'}},console});
+const code=readFileSync(new URL('../web/assets/firebase-client.js',import.meta.url),'utf8').replace(/export (async )?function/g,'$1function').replace(/export const/g,'const');
+vm.runInContext(code,context);
+let request;
+context.qaFirestore={collection:(_,...parts)=>({path:parts.join('/')}),where:(field,op,value)=>({field,op,value}),query:(ref,...constraints)=>({...ref,constraints}),getCountFromServer:async q=>{request=q;return {data:()=>({count:351})};}};
+vm.runInContext('modules={firestore:qaFirestore};db={};',context);
+assert.equal(await context.countReportReplies('post'),351,'El total no se limita a los 200 comentarios cargados');
+assert.equal(request.path,'reports/post/replies');
+assert.equal(request.constraints.length,1);
+assert.equal(request.constraints[0].field,'status');assert.equal(request.constraints[0].value,'approved');
+context.qaFirestore.getCountFromServer=async()=>{throw Error('Sin conexión');};
+await assert.rejects(context.countReportReplies('post'),/Sin conexión/,'Un fallo no se presenta como cero comentarios');
+console.log('PASS contador: agregación sin límite de lista, filtro approved y errores conservados');

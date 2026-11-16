@@ -32,6 +32,7 @@ with sync_playwright() as p:
   assert page.locator('.report-card .react-button[data-kind="like"] .react-number').inner_text()=='1'
   page.locator('.report-card .react-button[data-kind="wow"]').click()
   assert page.locator('.report-card .react-button[data-kind="wow"] .react-number').inner_text()=='1'
+  assert page.locator('[data-comment-count]').inner_text()=='0'
   # inline comments rather than modal
   page.get_by_role('button',name='Comentarios').click()
   assert page.locator('.inline-comments').count()==1
@@ -42,6 +43,7 @@ with sync_playwright() as p:
   assert '\n' in page.locator('#reply-text').input_value()
   page.get_by_role('button',name='Publicar comentario').click()
   assert page.locator('.inline-comments .reply-item').count()==1
+  assert page.locator('[data-comment-count]').inner_text()=='1'
   assert page.locator('#reply-text').input_value()==''
   assert page.locator('#modal-root .modal-overlay').count()==0
   first=page.locator('.inline-comments .reply-item').first
@@ -55,9 +57,11 @@ with sync_playwright() as p:
   page.locator('#reply-text').fill('Respuesta anónima de prueba al primer comentario.')
   page.get_by_role('button',name='Publicar respuesta').click()
   assert page.locator('.inline-comments .reply-item').count()==2
+  assert page.locator('[data-comment-count]').inner_text()=='2'
   page.once('dialog',lambda d:d.accept())
   page.locator('.inline-comments .reply-item').first.get_by_role('button',name='Eliminar').click()
   assert page.locator('.inline-comments .reply-item').count()==1
+  assert page.locator('[data-comment-count]').inner_text()=='1'
   assert 'Comentario eliminado' not in page.locator('.inline-comments').inner_text()
   # comments toggled closed
   page.locator('.inline-comment-title [data-action="thread"]').click()
@@ -83,6 +87,7 @@ with sync_playwright() as p:
   # Un fallo remoto conserva el borrador y permite reintentar el comentario.
   page.evaluate('''() => {
     const post=state.reports[0];state.remoteReports=[post];state.remoteReplies=[];
+    countReportReplies=async()=>state.remoteReplies.length;
     firebaseEnabled=true;navigate('funa/'+post.id);toggleInlineThread(post.id);
     let attempts=0;
     addNestedReply=async (reportId,text,user)=>{

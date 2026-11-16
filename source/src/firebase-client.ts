@@ -243,7 +243,7 @@ export async function addReport(data:Report,files:File[]):Promise<{warning?:stri
   }
   return {};
 }
-export function listenReplies(reportId:string, uid:string, onData:(reply:Reply[])=>void, onError:(error:any)=>void=()=>{}) {
+export function listenReplies(reportId:string, uid:string, onData:(reply:Reply[],confirmed?:boolean)=>void, onError:(error:any)=>void=()=>{}) {
   if (!modules) return ()=>{};
   const f=modules.firestore;
   // Una sola escucha: evita que un comentario llegue por dos consultas simultáneas.
@@ -252,7 +252,7 @@ export function listenReplies(reportId:string, uid:string, onData:(reply:Reply[]
   // No abrir escuchas de reacciones para un comentario nuevo aún no confirmado.
   // Los cambios de metadatos aseguran recibir la confirmación del servidor.
   return f.onSnapshot(q,{includeMetadataChanges:true},(snap:any)=>onData(snap.docs.filter((d:any)=>!d.metadata?.hasPendingWrites||d.data().createdAt!=null).map((d:any)=>({id:d.id,reportId,...d.data(),
-    createdAt:d.data().createdAt?.toMillis?.()||Date.now(),editedAt:d.data().editedAt?.toMillis?.()||null})).sort((a:Reply,b:Reply)=>a.createdAt-b.createdAt)),onError);
+    createdAt:d.data().createdAt?.toMillis?.()||Date.now(),editedAt:d.data().editedAt?.toMillis?.()||null})).sort((a:Reply,b:Reply)=>a.createdAt-b.createdAt),!snap.metadata?.fromCache),onError);
 }
 export async function addReply(reportId:string, text:string, user:User) {
   const f=modules.firestore;
@@ -358,6 +358,13 @@ export async function deleteOwnReply(reportId:string,replyId:string) {
 
 /** Actualizaciones añadidas por el autor: no sustituyen al texto original. */
 export type FunaUpdate = {id:string;reportId:string;text:string;authorUid:string;createdAt:number;media?:EvidenceMeta[]};
+/** Total de comentarios aprobados, incluidas las respuestas; sin límite de página. */
+export async function countReportReplies(reportId:string):Promise<number>{
+ if(!modules)return 0;
+ const f=modules.firestore;
+ const snapshot=await f.getCountFromServer(f.query(f.collection(db,'reports',reportId,'replies'),f.where('status','==','approved')));
+ return snapshot.data().count;
+}
 export async function countFunaUpdates(reportId:string):Promise<number>{
  if(!modules)return 0;
  const f=modules.firestore,snapshot=await f.getCountFromServer(f.query(f.collection(db,'reports',reportId,'updates')));

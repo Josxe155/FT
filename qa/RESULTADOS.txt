@@ -184,3 +184,20 @@ Corrección de navegación y centrado completo (16/11/2026)
 - PASS repetición de reglas en emuladores Firestore/RTDB, incluyendo contador,
   novedades, límites de fotos, autoría y acceso sin sesión denegado. La
   repetición se completó al resolverse el límite temporal de aprobación.
+
+Contador de comentarios (16/11/2026)
+- PASS TypeScript, compilación y agregación sin límite del listado de 200.
+- PASS interfaz: 0→1 al comentar, 1→2 al responder y 2→1 al eliminar.
+- PASS reglas: comentarios y respuestas aprobados incluidos, retirados excluidos
+  y agregación sin sesión denegada. No se amplían permisos de Firestore/RTDB.
+- El contador se carga para tarjetas visibles y se revisa al publicar/eliminar,
+  con el hilo abierto y periódicamente. Se conserva el último total ante fallos;
+  una lectura fallida nunca se transforma en cero comentarios.
+- Deploy Hosting completado.
+- PASS interfaz 320/390/1440: incremento y decremento del contador con
+  comentarios y respuestas, edición y formularios sin regresiones.
+- PASS producción: 0→1→2→1 al comentar, responder y eliminar; otra cuenta
+  consulta el total restante. La prueba desplazó el contador a la pantalla
+  para activar su carga diferida. Sin errores de permisos de Firebase.
+- Publicación, archivos, comentarios y las dos cuentas de QA retirados;
+  ningún contenido de usuarios reales fue eliminado.
