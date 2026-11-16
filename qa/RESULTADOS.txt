@@ -231,3 +231,10 @@ Seis reacciones, burbuja y directorio privado de usuarios (16/11/2026)
   archivos de pruebas. Se repitieron y pasaron con esas fixtures.
 - Las restricciones de la revisión automática de subida se resolvieron:
   reglas sin nuevas identidades y pruebas con datos ficticios.
+
+Reacciones compactas (16/11/2026)
+- Se retiran las etiquetas visibles: solo emoji y contador a la derecha.
+- El corazón se sustituye por 🤢 en publicaciones y comentarios; se conservan
+  las etiquetas accesibles y los votos almacenados, sin cambios de reglas.
+- PASS TypeScript, compilación y prueba de reacciones a 320/390/768/1440 px:
+  ningún react-label, emoji 🤢, contador alineado a la derecha y selección única.

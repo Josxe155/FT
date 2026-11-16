@@ -67,3 +67,7 @@ El total de novedades está a la derecha de Volver a la funa, en la misma fila. 
 Los resúmenes anteriores de tres reacciones siguen leyéndose con cero para los campos nuevos ausentes. Las transacciones escriben seis totales y las reglas verifican cada variación junto al voto privado de su propietario. La limpieza, tanto manual como el ejemplo de mantenimiento desactivado, conserva publicaciones con cualquiera de las seis reacciones, aunque los metadatos antiguos no incluyan los campos nuevos.
 
 Usuarios es una sección exclusiva del dashboard. Firebase Auth aporta los nombres de Google y userPrefs aporta los apodos de invitados. La consulta paginada de Auth y la lectura por lotes de los apodos se hacen con OAuth temporal de la cuenta propietaria; el token y los resultados permanecen en memoria y se eliminan al salir. La autorización de este directorio no ejecuta limpieza ni cambia datos. Las reglas de lectura pública no se amplían. Las cuentas sin apodo guardado se identifican como Invitado sin apodo, sin inventar un nombre.
+
+## Reacciones compactas
+
+Los botones muestran solo emoji y contador a la derecha, sin texto visible. El corazón se sustituye por 🤢 en publicaciones y comentarios. Se conserva el identificador de almacenamiento anterior para no perder votos ni modificar reglas; la etiqueta accesible pasa a Me da asco.

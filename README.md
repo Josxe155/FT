@@ -195,6 +195,8 @@ El contador junto a «Comentarios» incluye comentarios y respuestas aprobados. 
 
 ### Reacciones y administración
 
-Las publicaciones y los comentarios admiten seis reacciones: Me gusta, Me sorprende, Me preocupa, Me enoja, Me entristece y Me encanta. Cada cuenta conserva una sola selección por publicación o comentario; tocarla otra vez la quita. Cualquiera de las seis protege la publicación en la limpieza manual.
+Las publicaciones y los comentarios admiten seis reacciones: Me gusta, Me sorprende, Me preocupa, Me enoja, Me entristece y Me da asco (🤢). Cada cuenta conserva una sola selección por publicación o comentario; tocarla otra vez la quita. Cualquiera de las seis protege la publicación en la limpieza manual.
 
 En el dashboard, **Usuarios** muestra el nombre de las cuentas de Google y el apodo privado de los invitados. La consulta requiere autorización temporal de la cuenta administradora; los nombres no se guardan en perfiles públicos ni se muestran en la comunidad. El directorio permite buscar y cargar más usuarios.
+
+Los botones de reacción muestran únicamente el emoji y su contador a la derecha. Los nombres se conservan como etiquetas accesibles para lectores de pantalla.

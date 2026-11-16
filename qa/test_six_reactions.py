@@ -11,6 +11,10 @@ with sync_playwright() as p:
   page=browser.new_page(viewport={'width':width,'height':1000});errors=[];page.on('pageerror',lambda e:errors.append(str(e)));page.route('https://**/*',lambda route:route.abort());page.route('**/config.js',lambda route:route.fulfill(content_type='application/javascript',body='window.FUNADOS_FIREBASE_CONFIG={};'))
   page.add_init_script('localStorage.setItem("funados_todos_reports_v3",'+json.dumps(json.dumps([report]))+');localStorage.setItem("funados_todos_updates_v6",'+json.dumps(json.dumps(updates))+');sessionStorage.setItem("funados_todos_guest_v3","qa-six-user");')
   page.goto('http://127.0.0.1:5000/#/canton/machala');expect(page.locator('.react-button')).to_have_count(6)
+  expect(page.locator('.react-label')).to_have_count(0)
+  expect(page.locator('.react-button[data-kind=love] .react-emoji')).to_have_text('🤢')
+  for button in page.locator('.react-button').all():
+   emoji=button.locator('.react-emoji').bounding_box();count=button.locator('.react-number').bounding_box();assert count['x']>=emoji['x']+emoji['width'];assert abs(count['y']+count['height']/2-emoji['y']-emoji['height']/2)<2
   for kind in kinds:
    button=page.locator('.react-button[data-kind='+kind+']');button.click();expect(button).to_have_attribute('aria-pressed','true');expect(button.locator('.react-number')).to_have_text('1');assert page.locator('.react-button[aria-pressed=true]').count()==1
   page.locator('.react-button[data-kind=love]').click();assert page.locator('.react-button[aria-pressed=true]').count()==0
