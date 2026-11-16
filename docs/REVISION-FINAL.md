@@ -83,3 +83,7 @@ Se ejecutaron las pruebas de todas las secciones: acceso, 14 cantones, ajustes, 
 ## Prioridad al contenido multimedia
 
 Las reacciones pasan a una tira compacta de tamaño natural, sin tarjetas ni contadores en cápsulas. Los emojis miden 14 px y los botones reducen su altura a 30 px. El fondo es transparente salvo al señalar o seleccionar una reacción. La tira se adapta al espacio disponible para dar protagonismo a las imágenes y vídeos.
+
+## Reacciones adaptables y alineadas a la derecha
+
+Los emojis de publicaciones crecen de 18 a 26 px según la pantalla; en comentarios, de 16 a 22 px. Los botones aprovechan el ancho disponible y la fila se alinea a la derecha, permitiendo varias líneas si hace falta. Se mantienen el contador a la derecha, las etiquetas accesibles y los estados de selección. Verificado a 320, 390, 768 y 1440 px.

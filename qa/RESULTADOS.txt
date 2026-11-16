@@ -275,3 +275,9 @@ Reacciones subordinadas a las evidencias (16/11/2026)
 - PASS TypeScript, compilación y reacciones en 320/390/768/1440 px:
   seis opciones, contador a la derecha, cambiar/quitar y sin desbordamiento.
 - Deploy Hosting completado, sin cambios de reglas ni de datos.
+
+Reacciones fluidas (16/11/2026)
+- Emojis de 18–26 px en publicaciones y 16–22 px en comentarios.
+- Distribución flexible alineada a la derecha, contador junto al emoji.
+- PASS TypeScript, compilación y suite existente de seis reacciones
+  en 320/390/768/1440 px, sin desbordamiento ni cambios de datos.

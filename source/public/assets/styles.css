@@ -262,11 +262,14 @@
 
 .comment-react-button>span[aria-hidden=true]{font-size:18px;line-height:1.2}
 
-/* Reacciones secundarias: una tira compacta, sin tarjetas ni contadores en cápsulas. */
-.reactions-bar,.comment-reactions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:4px;max-width:100%}
-.reactions-bar{margin:10px 0 0;padding:0;border:0}
-.reactions-bar .react-button,.comment-reactions .comment-react-button{display:inline-flex;flex:0 0 auto;flex-direction:row;align-items:center;justify-content:center;gap:3px;width:auto;min-width:28px;min-height:30px;margin:0;padding:4px 5px;border:1px solid transparent;border-radius:6px;background:transparent;color:#9eafc8;font-weight:500;box-shadow:none;transform:none}
-.reactions-bar .react-emoji,.comment-reactions .comment-react-button>span[aria-hidden=true]{font-size:14px;line-height:1.2}
-.reactions-bar .react-number,.comment-reactions .react-number{display:inline-block;min-width:0;width:auto;max-width:none;height:auto;margin:0;padding:0;border:0;border-radius:0;background:none;color:inherit;font-size:10px;font-weight:500;line-height:1.2;font-variant-numeric:tabular-nums;overflow-wrap:normal}
+/* Reacciones fluidas: emojis más grandes y alineación a la derecha. */
+.reactions-bar,.comment-reactions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:clamp(3px,1vw,10px);max-width:100%}
+.reactions-bar{margin:12px 0 0;padding:0;border:0}
+.reactions-bar .react-button,.comment-reactions .comment-react-button{display:inline-flex;flex:1 0 auto;flex-direction:row;align-items:center;justify-content:center;gap:clamp(3px,.5vw,6px);width:auto;min-width:28px;max-width:72px;min-height:38px;margin:0;padding:5px 4px;border:1px solid transparent;border-radius:7px;background:transparent;color:#a6b6cc;font-weight:500;box-shadow:none;transform:none;white-space:nowrap}
+.reactions-bar .react-emoji{font-size:clamp(18px,calc(14px + .8vw),26px);line-height:1.2}
+.comment-reactions .comment-react-button{max-width:56px;min-height:34px;padding:4px 3px}
+.comment-reactions .comment-react-button>span[aria-hidden=true]{font-size:clamp(16px,calc(12px + .7vw),22px);line-height:1.2}
+.reactions-bar .react-number,.comment-reactions .react-number{display:inline-block;flex-shrink:0;min-width:0;width:auto;max-width:none;height:auto;margin:0;padding:0;border:0;border-radius:0;background:none;color:inherit;font-size:clamp(10px,.8vw,12px);font-weight:500;line-height:1.2;font-variant-numeric:tabular-nums;overflow-wrap:normal}
 .reactions-bar .react-button:hover,.comment-reactions .comment-react-button:hover{background:#182338;border-color:#35455f;transform:none}
 .reactions-bar .react-button.react-selected,.comment-reactions .comment-react-button.react-selected{background:#1c2b43;border-color:#516689;color:#eef4ff;box-shadow:none}
+@media(max-width:380px){.reactions-bar{gap:3px}.reactions-bar .react-button{gap:3px;padding:4px 3px;min-height:34px}}
