@@ -10,7 +10,7 @@ for(const file of ['cantons.js','main.js','entry.js','firebase-client.js','media
 }
 for(const dir of [resolve(root,'assets'),resolve(root,'web/assets'),resolve(src,'public/assets')]){
   copyFileSync(resolve(src,'src/styles.css'),resolve(dir,'styles.css'));
-  for(const name of ['logo.svg','favicon.svg','icon-192.png','icon-512.png']) copyFileSync(resolve(src,'public/assets',name),resolve(dir,name));
+  for(const name of ['logo.svg','favicon.svg','icon-192.png','icon-512.png','canton-atahualpa.svg','canton-portovelo.svg']) copyFileSync(resolve(src,'public/assets',name),resolve(dir,name));
 }
 copyFileSync(resolve(src,'index.html'),resolve(root,'index.html'));
 copyFileSync(resolve(src,'index.html'),resolve(root,'web/index.html'));

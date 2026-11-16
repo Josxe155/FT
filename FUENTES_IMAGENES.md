@@ -16,3 +16,7 @@ Las imágenes proceden de páginas públicas y se muestran mediante enlaces exte
 - **Portovelo**: [Fuente](https://www.goraymi.com/es-ec/el-oro/portovelo/ciudades/portovelo-a7c2fe9ec) · [Imagen externa](https://img.goraymi.com/2015/08/11/ec564a9d3738fa52daa94640cfa68d99_xl.jpg)
 - **Santa Rosa**: [Fuente](https://www.santarosa.gob.ec/web/2021/11/09/santa-rosa-celebra-sus-162-anos-de-cantonizacion-con-diversas-actividades/) · [Imagen externa](https://www.santarosa.gob.ec/web/wp-content/uploads/2021/11/WhatsApp-Image-2021-10-14-at-1.27.26-PM-1-1170x658.jpeg)
 - **Zaruma**: [Fuente](https://www.clave.com.ec/zaruma-and-its-many-charms/) · [Imagen externa](https://www.clave.com.ec/wp-content/uploads/2017/08/AR-PN-COSTA05-Parque-Central-de-Zaruma-1.jpg)
+
+## Sustituciones del 16/11/2026
+
+Atahualpa y Portovelo usan ilustraciones vectoriales locales originales (`canton-atahualpa.svg` y `canton-portovelo.svg`). Sus fotografías de Goraymi devolvían HTTP 503. Las ilustraciones son decorativas y no representan fotografías de esos cantones; ya no se solicita el recurso externo. Las otras doce imágenes respondieron HTTP 200 en esta revisión.

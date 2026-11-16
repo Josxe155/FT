@@ -67,7 +67,7 @@ export async function maintain({db,rtdb,auth,apply=false,now=Date.now(),settings
    await auth.deleteUser(uid);
   }catch(e){if(e.code!=='auth/user-not-found')throw e;}
   // Se conservan publicaciones con apoyo y sus evidencias, comentarios y votos.
-  for(const collection of ['profiles','userPrefs'])await db.recursiveDelete(db.doc(collection+'/'+uid));
+  for(const collection of ['profiles','userPrefs','publishLimits'])await db.recursiveDelete(db.doc(collection+'/'+uid));
   await rtdb.ref().update({['activity/'+uid]:null,['presence/'+uid]:null,['visits/'+uid]:null});
   await job.ref.delete();result.usersDeleted++;
  }

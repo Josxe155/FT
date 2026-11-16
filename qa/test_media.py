@@ -33,7 +33,8 @@ with sync_playwright() as p:
    centered=page.locator(selector).evaluate('(button)=>{const b=button.getBoundingClientRect(),s=button.querySelector("svg").getBoundingClientRect();return Math.abs(b.x+b.width/2-s.x-s.width/2)<1 && Math.abs(b.y+b.height/2-s.y-s.height/2)<1}')
    assert centered,selector
 
-  assert page.locator('.viewer-footer a[download]').get_attribute('download')=='video.webm'
+  expect(page.locator('a[download]')).to_have_count(0)
+  expect(page.locator('.video-player video')).to_have_attribute('controlsList','nodownload')
   page.locator('[data-video-play]').click();page.wait_for_function('!document.querySelector(".video-player video").paused')
   page.locator('[data-video-play]').click();page.wait_for_function('document.querySelector(".video-player video").paused')
   page.locator('[data-video-seek]').evaluate('(e)=>{e.value="2";e.dispatchEvent(new Event("input",{bubbles:true}));}')

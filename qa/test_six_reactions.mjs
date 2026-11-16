@@ -13,7 +13,8 @@ async function vote(context,kind,comment=false){
  return runTransaction(db,async tx=>{const [old,summary]=await Promise.all([tx.get(v),tx.get(s)]),counts={...zero(),...(summary.data()||{})},previous=old.data()?.kind||'none';if(previous!=='none')counts[previous]--;if(kind!=='none')counts[kind]++;delete counts.updatedAt;tx.set(v,{kind,updatedAt:serverTimestamp()});tx.set(s,{...counts,updatedAt:serverTimestamp()});});
 }
 try{
- await assertSucceeds(setDoc(doc(alice.firestore(),root),{id:'six-reactions',canton:'machala',title:'Prueba de seis reacciones',description:'Publicación ficticia para verificar los contadores y sus permisos.',category:'Funa',status:'approved',authorUid:'reaction-alice',authorAlias:'Anónimo',createdAt:serverTimestamp(),images:[],media:[]}));
+ const initial=writeBatch(alice.firestore());initial.set(doc(alice.firestore(),'publishLimits/reaction-alice'),{count:1,windowStartedAt:serverTimestamp(),updatedAt:serverTimestamp(),lastReportId:'six-reactions'});
+ initial.set(doc(alice.firestore(),root),{id:'six-reactions',canton:'machala',title:'Prueba de seis reacciones',description:'Publicación ficticia para verificar los contadores y sus permisos.',category:'Funa',status:'approved',authorUid:'reaction-alice',authorAlias:'Anónimo',createdAt:serverTimestamp(),images:[],media:[]});await assertSucceeds(initial.commit());
  await assertSucceeds(setDoc(doc(alice.firestore(),root+'/replies/comment'),{reportId:'six-reactions',text:'Comentario para probar las seis reacciones.',authorUid:'reaction-alice',authorAlias:'Anónimo',status:'approved',createdAt:serverTimestamp()}));
  // Un resumen legado de tres claves migra al cambiar de reacción.
  await env.withSecurityRulesDisabled(async context=>{await setDoc(doc(context.firestore(),root+'/reactionStats/summary'),{like:1,wow:0,concern:0,updatedAt:serverTimestamp()});await setDoc(doc(context.firestore(),root+'/reactions/reaction-alice'),{kind:'like',updatedAt:serverTimestamp()});});

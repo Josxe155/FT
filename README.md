@@ -132,7 +132,7 @@ El directorio de Hosting es **`web/`**. Subir un commit a GitHub no publica auto
 - **Carrusel de evidencias:** desliza, usa las flechas o el teclado; amplía una imagen y recorre los demás archivos desde el visor.
 - **Reproductor propio:** reproducción/pausa, avance, volumen, silencio, velocidad, pantalla completa y ventana flotante cuando el navegador lo permita. No reproduce automáticamente.
 - **Actualizaciones del autor:** mensajes fechados con hasta cuatro fotos de 5 MB cada una. El borrador se conserva al ampliar una imagen.
-- **Archivos originales:** se pueden descargar desde el visor. Algunos formatos MOV dependen de los códecs del navegador.
+- **Visualización dentro de la página:** sin botones de descarga en el visor ni en el dashboard. Algunos MOV dependen de los códecs del navegador. Como cualquier contenido visible en la web, no se puede garantizar que nadie lo copie o capture.
 
 ## 🧹 Limpieza manual desde el dashboard
 
@@ -200,3 +200,11 @@ Las publicaciones y los comentarios admiten seis reacciones: Me gusta, Me sorpre
 En el dashboard, **Usuarios** muestra el nombre de las cuentas de Google y el apodo privado de los invitados. La consulta requiere autorización temporal de la cuenta administradora; los nombres no se guardan en perfiles públicos ni se muestran en la comunidad. El directorio permite buscar y cargar más usuarios.
 
 Los botones de reacción muestran únicamente el emoji y su contador a la derecha. Los nombres se conservan como etiquetas accesibles para lectores de pantalla.
+
+## ⏱️ Límite de publicaciones
+
+Cada cuenta Google o invitada puede publicar **3 funas por ventana de una hora**, iniciada con la primera publicación confirmada. El contador privado `publishLimits/{uid}` y la funa se guardan en una transacción; las reglas rechazan una cuarta publicación, reinicios anticipados y escrituras sin contador. La aplicación informa del tiempo de espera y conserva el texto. Una subida fallida no consume cupo. La limpieza manual elimina también el contador cuando retira una cuenta inactiva.
+
+El límite es por cuenta, no por persona ni dirección IP. Crear otra cuenta invitada puede eludir esa identidad; App Check y controles globales siguen siendo mejoras futuras. La aplicación se opera con administración y moderación continuas.
+
+Prueba específica: `node qa/test_publish_limits.mjs`, dentro del emulador de Firestore.

@@ -112,6 +112,36 @@ service cloud.firestore {
         && d.tiktokUsername is string && d.tiktokUsername.matches('^[a-zA-Z0-9._]{2,24}$')
         && d.updatedAt == request.time;
     }
+    // Ventana de una hora, iniciada en la primera publicación confirmada.
+    // El contador y la funa se escriben juntos; cada incremento exige una funa nueva.
+    function consumesPublishQuota(reportId) {
+      let quota = getAfter(/databases/$(database)/documents/publishLimits/$(request.auth.uid)).data;
+      return quota.lastReportId == reportId && quota.updatedAt == request.time;
+    }
+    function validPublishQuota(d, uid) {
+      return d.keys().hasOnly(['count','windowStartedAt','updatedAt','lastReportId'])
+        && d.keys().hasAll(['count','windowStartedAt','updatedAt','lastReportId'])
+        && d.count is int && d.count >= 1 && d.count <= 3
+        && d.windowStartedAt is timestamp && d.updatedAt == request.time
+        && d.lastReportId is string && d.lastReportId.size() >= 8 && d.lastReportId.size() <= 90
+        && !exists(/databases/$(database)/documents/reports/$(d.lastReportId))
+        && getAfter(/databases/$(database)/documents/reports/$(d.lastReportId)).data.authorUid == uid
+        && getAfter(/databases/$(database)/documents/reports/$(d.lastReportId)).data.createdAt == request.time;
+    }
+    match /publishLimits/{uid} {
+      allow get: if signed() && request.auth.uid == uid;
+      allow list, delete: if false;
+      allow create: if signed() && request.auth.uid == uid
+        && validPublishQuota(request.resource.data,uid)
+        && request.resource.data.count == 1 && request.resource.data.windowStartedAt == request.time;
+      allow update: if signed() && request.auth.uid == uid
+        && validPublishQuota(request.resource.data,uid)
+        && ((request.time >= resource.data.windowStartedAt + duration.value(1,'h')
+            && request.resource.data.count == 1 && request.resource.data.windowStartedAt == request.time)
+          || (request.time < resource.data.windowStartedAt + duration.value(1,'h')
+            && request.resource.data.windowStartedAt == resource.data.windowStartedAt
+            && request.resource.data.count == resource.data.count + 1));
+    }
     function validNewReport(d, reportId, uid) {
       let media = d.get('media', []);
       return d.keys().hasOnly(['id','canton','title','description','category','status','authorUid','authorAlias','createdAt','images','media','sensitiveContent'])
@@ -130,7 +160,8 @@ service cloud.firestore {
       // Importante: las consultas del cliente filtran status; las reglas no filtran resultados.
       allow get, list: if signed() && (resource.data.status == 'approved'
         || resource.data.authorUid == request.auth.uid || admin());
-      allow create: if signed() && validNewReport(request.resource.data,reportId,request.auth.uid);
+      allow create: if signed() && validNewReport(request.resource.data,reportId,request.auth.uid)
+        && consumesPublishQuota(reportId);
       // Cambios de estado por administrador. El frontend no puede autoaprobar contenidos retirados.
       allow update: if admin() && resource.data.status != 'deleting' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedAt','reportCount'])
         && request.resource.data.status in ['approved','pending','rejected'];

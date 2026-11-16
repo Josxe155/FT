@@ -1,11 +1,20 @@
 import {readFileSync} from 'node:fs';
 import {initializeTestEnvironment,assertSucceeds,assertFails} from '@firebase/rules-unit-testing';
-import {doc,setDoc,getDoc,updateDoc,collection,query,where,orderBy,limit,getDocs,getCountFromServer,serverTimestamp as fsTime} from 'firebase/firestore';
+import {doc,setDoc as rawSetDoc,writeBatch,getDoc,updateDoc,collection,query,where,orderBy,limit,getDocs,getCountFromServer,serverTimestamp as fsTime} from 'firebase/firestore';
 import {ref,set,get,remove,serverTimestamp as rtTime} from 'firebase/database';
 // Identidad ficticia solo en las reglas cargadas dentro del emulador de QA.
 const qaRules=path=>readFileSync(path,'utf8').replace(/'[^'\n]*@[^'\n]*'/g,"'admin@example.test'");
 const env=await initializeTestEnvironment({projectId:'demo-funados-security',firestore:{host:'127.0.0.1',port:8086,rules:qaRules('firestore.rules')},database:{host:'127.0.0.1',port:9000,rules:qaRules('database.rules.json')}});
 const a=env.authenticatedContext('alice'),b=env.authenticatedContext('bob'),anon=env.unauthenticatedContext();
+// Cada caso de esquema se aísla con una ventana nueva; el límite real se prueba en test_publish_limits.mjs.
+async function setDoc(ref,data,...options){
+ if(ref.parent.id!=='reports')return rawSetDoc(ref,data,...options);
+ const db=ref.firestore,uid=ref.path==='reports/spoof'?'bob':'alice';
+ await env.withSecurityRulesDisabled(async c=>{await rawSetDoc(doc(c.firestore(),'publishLimits',uid),{count:0,windowStartedAt:fsTime(),updatedAt:fsTime(),lastReportId:'fixture-old'});});
+ const batch=writeBatch(db);
+ batch.set(doc(db,'publishLimits',uid),{count:1,windowStartedAt:(await getDoc(doc(db,'publishLimits',uid))).data().windowStartedAt,updatedAt:fsTime(),lastReportId:ref.id});
+ batch.set(ref,data);return batch.commit();
+}
 const report={id:'test-report',canton:'machala',title:'Reporte de prueba seguro',description:'Descripción técnica de una prueba aislada de permisos.',category:'Funa',status:'approved',authorUid:'alice',authorAlias:'Anónimo',createdAt:fsTime(),images:[],media:[],sensitiveContent:false};
 try{
  await assertSucceeds(setDoc(doc(a.firestore(),'reports/test-report'),report));

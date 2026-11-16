@@ -1,12 +1,12 @@
 {
   "score": 4,
-  "summary": "Revisión final de Auth, Firestore y Realtime Database. Las pruebas verifican propiedad, privilegios del administrador verificado, campos permitidos, límites de adjuntos, consultas del cliente y bloqueo de evidencias. Se reforzaron los tamaños de imágenes, los detalles de denuncias y la fecha de primera visita. No se detectaron accesos no autorizados en los casos ejecutados; no es una garantía de ausencia de vulnerabilidades. Revisión de seguimiento integrado: contador por agregación, consulta descendente de las últimas 100 novedades, fotos sin texto y rechazo de actualizaciones totalmente vacías. Autoría y límites de cuatro fotos/5 MiB se mantienen.",
+  "summary": "Revisión final de Auth, Firestore y Realtime Database. Las pruebas verifican propiedad, privilegios del administrador verificado, campos permitidos, límites de adjuntos, consultas del cliente y bloqueo de evidencias. Se reforzaron los tamaños de imágenes, los detalles de denuncias y la fecha de primera visita. No se detectaron accesos no autorizados en los casos ejecutados; no es una garantía de ausencia de vulnerabilidades. Revisión de seguimiento integrado: contador por agregación, consulta descendente de las últimas 100 novedades, fotos sin texto y rechazo de actualizaciones totalmente vacías. Autoría y límites de cuatro fotos/5 MiB se mantienen. Seguimiento 16/11/2026: límite de tres funas por UID y ventana de una hora validado atómicamente, contador privado y limpieza del contador al retirar una cuenta. No hay botones de descarga y las dos imágenes 503 se sustituyen por ilustraciones locales.",
   "findings": [
     {
       "check": "Storage Abuse / Resource Exhaustion",
       "severity": "minor",
-      "issue": "Los límites por archivo y documento no limitan la cantidad de cuentas invitadas ni la frecuencia global de publicaciones. Una cuenta autenticada puede consumir cuotas con muchas solicitudes válidas.",
-      "recommendation": "Si aumenta el tráfico, evaluar App Check y límites de frecuencia en un servicio de confianza, con pruebas de compatibilidad antes de activarlos. Ver los límites operativos documentados en SEGURIDAD.md."
+      "issue": "Tres publicaciones por hora limitadas por cuenta en reglas; crear nuevas cuentas invitadas o realizar muchas lecturas y subidas directas aún puede consumir cuotas. No hay App Check forzado ni límite global por IP/persona.",
+      "recommendation": "Mantener supervisión de cuotas y moderación; evaluar App Check y controles globales desde un servicio de confianza si aumenta el abuso."
     },
     {
       "check": "Type Safety",

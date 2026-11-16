@@ -32,6 +32,7 @@ class Backend:
   self.put('reports/old-delete/updates/update',text='Actualización ficticia')
   self.put('reports/old-delete/replies/missing/reactions/orphan',kind='none')
   self.put('flags/flag',reportId='old-delete',reason='Otro',createdAt=stamp(NOW),details='Texto ficticio')
+  self.put('publishLimits/idle-delete',count=3)
   self.put('profiles/idle-delete',uid='idle-delete',tiktokUsername='test_only',alias='Anónimo')
   self.put('userPrefs/idle-delete',alias='Invitado')
   out=io.BytesIO();Image.new('RGB',(2,2),'#5b80b9').save(out,format='PNG');photo=out.getvalue()
@@ -179,7 +180,7 @@ with sync_playwright() as p:
   assert backend.getrt('evidence/idle-delete/fresh-0/files/0/chunks') is not None
   assert 'idle-delete' not in backend.users and 'idle-return' in backend.users and 'qa-admin' in backend.users
   assert backend.getrt('evidenceUpdates/idle-delete/old-delete') is None
-  assert 'profiles/idle-delete' not in backend.docs and 'userPrefs/idle-delete' not in backend.docs
+  assert 'profiles/idle-delete' not in backend.docs and 'userPrefs/idle-delete' not in backend.docs and 'publishLimits/idle-delete' not in backend.docs
   # Un fallo parcial deja un trabajo reanudable, sin fingir éxito.
   backend.put('reports/retry-post',id='retry-post',authorUid='active',status='approved',title='Prueba reanudable',createdAt=stamp(NOW-31*DAY));backend.docs['reports/retry-post']['fields']['createdAt']={'timestampValue':stamp(NOW-31*DAY)}
   backend.fail_once.add('reports/retry-post');page.locator('[data-maint=refresh]').click();expect(page.locator('[data-maint-post]')).to_have_count(1)

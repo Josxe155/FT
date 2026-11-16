@@ -43,7 +43,7 @@ Antes de publicar las reglas también se comprueba su sintaxis con `deploy --dry
 
 ## Riesgos que permanecen
 
-- Una cuenta invitada puede crearse de nuevo. Los límites por documento no sustituyen límites de frecuencia ni evitan por sí solos spam, agotamiento de cuotas o descargas masivas.
+- Cada cuenta puede publicar tres funas por hora, con contador validado por reglas y transacción atómica. Una cuenta invitada puede crearse de nuevo: el límite por UID no sustituye los controles globales de abuso ni impide agotar cuotas con muchas cuentas o lecturas.
 - App Check no se ha activado ni se ha forzado desde esta revisión: exige configurar y probar el proveedor del sitio para evitar bloquear clientes legítimos.
 - El MIME y el tamaño declarados no inspeccionan el contenido binario. No hay antivirus ni moderación automática de archivos.
 - La etiqueta de contenido sensible oculta la interfaz; no retira los permisos de lectura del documento o del archivo aprobado.
@@ -63,3 +63,9 @@ Ver [RETENCION.md](RETENCION.md): registro de actividad protegido, política de 
 ## Multimedia y mantenimiento manual
 
 La revisión vigente amplía las reglas a `evidenceUpdates`, con acceso por propietario, hasta cuatro fotos y el mismo bloqueo de moderación de la publicación. La lectura conjunta de actividad y evidencias se concede solo a la administración verificada. El panel manual requiere además OAuth y permisos reales de la cuenta propietaria; no lleva secretos de servidor al navegador. Ver [RETENCION.md](RETENCION.md) y [MULTIMEDIA.md](MULTIMEDIA.md). La alternativa automática anterior permanece desactivada.
+
+## Límite por cuenta — 16/11/2026
+
+`publishLimits/{uid}` es privado y no se puede listar ni borrar desde clientes. La hora y cada actualización provienen de `request.time`. El documento solo puede avanzar acompañado de una publicación nueva del mismo autor; una funa exige el contador correspondiente en `getAfter`. No se permite publicar dos funas con un solo incremento. Tres publicaciones agotan la ventana de una hora, y después se reinicia con la siguiente publicación. Los intentos de falsear la fecha, reiniciar o borrar el contador y la concurrencia se verifican en emuladores. El mantenimiento administrativo elimina el contador al retirar la cuenta.
+
+Estas reglas son un prototipo revisado para este modelo y probado con ataques concretos, no una garantía absoluta. Deben volver a verificarse al cambiar el esquema o ampliar el público.

@@ -1,4 +1,4 @@
-import {videoPlayerMarkup,safeMediaFilename} from './media-ui.js';
+import {videoPlayerMarkup} from './media-ui.js';
 import {createMaintenance} from './dashboard-maintenance.js';
 const cfg=window.FUNADOS_FIREBASE_CONFIG||{},admin='alexander155alvarado@gmail.com',root=document.getElementById('dash-app'),cdn='https://www.gstatic.com/firebasejs/11.10.0';
 const safe=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -92,7 +92,7 @@ async function evidence(id,file){
   for(let i=0;i<item.chunks;i++){const raw=blocks[String(i)];if(typeof raw!=='string'||raw.length>65536)throw new Error('Archivo incompleto.');const decoded=atob(raw),bytes=Uint8Array.from(decoded,c=>c.charCodeAt(0));total+=bytes.length;if(total>item.size)throw new Error('Tamaño de archivo incoherente.');parts.push(bytes);}
   if(total!==item.size)throw new Error('Archivo incompleto.');
   const url=URL.createObjectURL(new Blob(parts,{type:item.type})),dialog=document.createElement('dialog');dialog.className='dash-evidence-viewer';
-  dialog.innerHTML=`<div class="viewer-header"><strong>${safe(item.name)}</strong><button class="dash-btn" data-close-evidence>Cerrar</button></div>${item.type.startsWith('video/')?videoPlayerMarkup(url):`<img src="${url}" alt="Evidencia de la publicación">`}<div class="viewer-footer"><a href="${url}" download="${safe(safeMediaFilename(item.name,item.type))}">Descargar original</a></div>`;
+  dialog.innerHTML=`<div class="viewer-header"><strong>${safe(item.name)}</strong><button class="dash-btn" data-close-evidence>Cerrar</button></div>${item.type.startsWith('video/')?videoPlayerMarkup(url):`<img src="${url}" alt="Evidencia de la publicación">`}`;
   dialog.querySelector('[data-close-evidence]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>{const video=dialog.querySelector('video');video?.pause();if(document.pictureInPictureElement===video)void document.exitPictureInPicture().catch(()=>{});URL.revokeObjectURL(url);dialog.remove();},{once:true});
   root.append(dialog);dialog.showModal();
  }finally{evidenceBusy=false;}

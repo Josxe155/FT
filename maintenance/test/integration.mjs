@@ -30,7 +30,7 @@ try{
  const imported=await auth.importUsers(['idle','active','protected','recent-login'].map(uid=>({uid,...(uid==='protected'?{email:policy.protectedEmails[0],emailVerified:true}:{}),metadata:{creationTime:new Date(old).toISOString(),lastSignInTime:new Date(uid==='recent-login'?now:old).toISOString()}})));
  assert.equal(imported.failureCount,0);
  await rtdb.ref('activity/active').set({lastActiveAt:now});
- await db.doc('profiles/idle').set({tiktokUsername:'test'});await db.doc('userPrefs/idle').set({alias:'test'});
+ await db.doc('publishLimits/idle').set({count:3});await db.doc('profiles/idle').set({tiktokUsername:'test'});await db.doc('userPrefs/idle').set({alias:'test'});
  const preview=await maintain({...api,apply:false});assert.equal(preview.reportsEligible,1);assert.equal(preview.usersEligible,1);
  assert.equal((await db.doc('reports/expired').get()).exists,true);assert.equal((await auth.getUser('idle')).uid,'idle');
  const applied=await maintain({...api,apply:true});assert.equal(applied.errors,0);assert.equal(applied.reportsDeleted,1);assert.equal(applied.usersDeleted,1);
@@ -43,7 +43,7 @@ try{
  assert.equal((await rtdb.ref('evidence/idle/supported').get()).exists(),true);
  await assert.rejects(auth.getUser('idle'),e=>e.code==='auth/user-not-found');
  for(const uid of ['active','protected','recent-login'])assert.equal((await auth.getUser(uid)).uid,uid);
- assert.equal((await db.doc('profiles/idle').get()).exists,false);assert.equal((await db.doc('userPrefs/idle').get()).exists,false);
+ assert.equal((await db.doc('profiles/idle').get()).exists,false);assert.equal((await db.doc('userPrefs/idle').get()).exists,false);assert.equal((await db.doc('publishLimits/idle').get()).exists,false);
  const again=await maintain({...api,apply:true});assert.equal(again.errors,0);assert.equal(again.reportsDeleted,0);assert.equal(again.usersDeleted,0);
  // Un fallo después de marcar el reporte debe poder retomarse aunque el documento padre desaparezca.
  await db.doc('maintenanceReportJobs/orphan').set({reportId:'orphan',authorUid:'idle',startedAt:Timestamp.fromMillis(now)});

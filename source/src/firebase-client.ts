@@ -219,17 +219,35 @@ async function uploadEvidence(file:File,owner:string,reportId:string,slot:number
   if(tasks.length)await Promise.all(tasks);
   return media;
 }
+const PUBLISH_WINDOW_MS=60*60*1000;
+function nextPublishWindow(previous:any) {
+  const start=previous?.windowStartedAt?.toMillis?.()||0;
+  const active=start>0 && Date.now()<start+PUBLISH_WINDOW_MS;
+  if(active && previous.count>=3){
+    const minutes=Math.max(1,Math.ceil((start+PUBLISH_WINDOW_MS-Date.now())/60000));
+    throw new Error(`Ya publicaste tres funas en esta hora. Podrás volver a publicar en ${minutes} ${minutes===1?'minuto':'minutos'}. Tu texto se conserva.`);
+  }
+  return {count:active?(previous?.count||0)+1:1,windowStartedAt:active?previous.windowStartedAt:modules.firestore.serverTimestamp()};
+}
 export async function addReport(data:Report,files:File[]):Promise<{warning?:string}>{
   if(!modules||!auth?.currentUser)throw new Error('Inicia sesión para publicar.');
   await requireCurrentSession(auth.currentUser.uid);
   if(files.length>10)throw new Error('Solo puedes subir diez evidencias.');
   if(files.length && !realtimeMediaAvailable())throw new Error('Activa Realtime Database y añade databaseURL para subir evidencias.');
   const f=modules.firestore,owner=auth.currentUser.uid;
+  const quotaRef=f.doc(db,'publishLimits',owner);
+  // Comprobación previa para evitar subir archivos cuando ya no quedan publicaciones.
+  nextPublishWindow((await f.getDocFromServer(quotaRef)).data());
   const media:EvidenceMeta[]=[];
   let published=false;
   try{
     for(const [slot,file] of files.entries())media.push(await uploadEvidence(file,owner,data.id,slot));
-    await f.setDoc(f.doc(db,'reports',data.id),{...data,images:[],media,status:'approved',createdAt:f.serverTimestamp()});
+    await f.runTransaction(db,async(tx:any)=>{
+      const quota=await tx.get(quotaRef);
+      const next=nextPublishWindow(quota.data());
+      tx.set(quotaRef,{...next,updatedAt:f.serverTimestamp(),lastReportId:data.id});
+      tx.set(f.doc(db,'reports',data.id),{...data,images:[],media,status:'approved',createdAt:f.serverTimestamp()});
+    });
     published=true;
     // La visibilidad se registra solo para el autor; el panel puede bloquearla al retirar contenido.
     if (files.length) await modules.database.set(modules.database.ref(rtdb,`evidenceVisibility/${owner}/${data.id}`),{ownerUid:owner,visible:true});

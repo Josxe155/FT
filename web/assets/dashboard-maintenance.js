@@ -123,7 +123,7 @@ export function createMaintenance({cfg,auth,rtdb,mod,admin,onChange,onFinished=(
   if(!safeId(uid)||uid===auth.currentUser.uid)throw new Error('Esta cuenta está protegida.');
   const fresh=await lookupUser(uid);
   if(fresh){if(!await canDeleteUser(fresh)){await removeDoc('maintenanceUserJobs/'+uid);return false;}await request(identity+'/accounts:delete',{localId:uid});}
-  await removeTree('profiles/'+uid);await removeTree('userPrefs/'+uid);await removeRealtime(['activity/'+uid,'presence/'+uid,'visits/'+uid]);await removeDoc('maintenanceUserJobs/'+uid);return true;
+  await removeTree('profiles/'+uid);await removeTree('userPrefs/'+uid);await removeTree('publishLimits/'+uid);await removeRealtime(['activity/'+uid,'presence/'+uid,'visits/'+uid]);await removeDoc('maintenanceUserJobs/'+uid);return true;
  }
  async function run(){
   if(state.busy||!state.connected)return;

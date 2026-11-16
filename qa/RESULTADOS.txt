@@ -281,3 +281,23 @@ Reacciones fluidas (16/11/2026)
 - Distribución flexible alineada a la derecha, contador junto al emoji.
 - PASS TypeScript, compilación y suite existente de seis reacciones
   en 320/390/768/1440 px, sin desbordamiento ni cambios de datos.
+
+Operación administrada y límite por hora (16/11/2026)
+- Tres funas por UID en una ventana de una hora desde la primera; Google e invitado.
+- Transacción publicación+contador y validación getAfter en reglas de Firestore.
+- PASS reglas en emuladores: cuarta rechazada, concurrencia, ventana nueva,
+  privacidad, borrado/reset anticipado, fechas falsas, publicación directa
+  y dos publicaciones con un solo incremento.
+- PASS reglas existentes: autoría, multimedia, privacidad y seis reacciones.
+- PASS integración de mantenimiento y dashboard: contador retirado con cuenta inactiva.
+- PASS TypeScript, build, preflight y compilación remota de reglas (dry-run).
+- PASS visor sin descargas, controles de vídeo y novedades responsive; rutas y dashboard.
+- Atahualpa/Portovelo: imágenes externas 503 sustituidas por ilustraciones locales.
+  Las otras doce fuentes de imágenes respondieron 200 al revisarlas.
+- Deploy Hosting y Firestore completado; RTDB y Authentication sin cambios.
+- El límite es por cuenta: no impide crear otra identidad invitada. No se
+  promete impedir técnicamente toda copia de contenido visible en el navegador.
+- PASS producción: tres funas confirmadas, cuarta bloqueada antes de subir
+  archivos, borrador conservado y contador=3. Ilustraciones locales cargadas
+  y visor sin enlaces download. Retirados los tres registros, adjuntos,
+  contador y la única cuenta ficticia de esta prueba.
