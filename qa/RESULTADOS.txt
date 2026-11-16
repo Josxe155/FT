@@ -238,3 +238,31 @@ Reacciones compactas (16/11/2026)
   las etiquetas accesibles y los votos almacenados, sin cambios de reglas.
 - PASS TypeScript, compilación y prueba de reacciones a 320/390/768/1440 px:
   ningún react-label, emoji 🤢, contador alineado a la derecha y selección única.
+
+Revisión de cierre e iconos proporcionados (16/11/2026)
+- Emojis de reacción a 18 px y burbuja de comentarios reducida, manteniendo
+  contador a la derecha, selección única y botones fáciles de pulsar.
+- PASS revisión completa: acceso, 14 cantones, ajustes, Mis funas, TikTok,
+  comentarios/respuestas/edición/borrado, denuncias, actualizaciones, seis
+  reacciones, sensibilidad, fotos, carruseles, vídeo y descarga.
+- PASS dashboard: directorio privado, autorización, búsqueda, paginación,
+  moderación, evidencias y limpieza manual con reanudación y protecciones.
+- PASS emuladores Auth/Firestore/RTDB y mantenimiento: permisos, privacidad,
+  votos, contadores, datos antiguos y conservación de publicaciones con apoyo.
+- PASS configuración remota Auth: Google e invitados habilitados; dominio
+  funados-todos.web.app autorizado. Sin nuevas autorizaciones personales.
+- Se reprodujo y corrigió un borrador que pasaba entre comentarios de funas
+  distintas. Se conserva también texto/foco/cursor de búsqueda y apodo durante
+  actualizaciones de pantalla, solo para la misma cuenta/ruta.
+- PASS regresiones de borradores a 320/390/1440 px; diseño y multimedia
+  también probados a 768 px y 844x390 horizontal.
+- PASS TypeScript, compilación, estructura JSON, adaptadores y mantenimiento.
+- Deploy Hosting completado. Sin cambios de reglas ni de facturación.
+- PASS producción final: seis reacciones, comentarios/contador, novedades,
+  compartir, sensibilidad, vídeo, cuatro fotos, lectura de otro invitado,
+  recarga directa y APIs privadas de usuarios; sin FirebaseError de permisos.
+- Datos de prueba retirados: publicación, adjuntos, comentarios y las dos
+  cuentas ficticias. Ningún contenido real eliminado.
+- Observación externa persistente: dos fotografías de proveedores ajenos
+  respondieron 503; los manejadores de error mantienen el fondo de respaldo
+  y permiten navegar. No son fallos de Firebase ni de la lógica de publicación.

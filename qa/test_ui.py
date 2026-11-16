@@ -66,6 +66,13 @@ with sync_playwright() as p:
   # comments toggled closed
   page.locator('.inline-comment-title [data-action="thread"]').click()
   assert page.locator('.inline-comments').count()==0
+  # Cambiar de publicación no debe llevarse el borrador al hilo equivocado.
+  page.evaluate("state.reports.push({...state.reports[0],id:'qa-other-draft',title:'Otra publicación para comprobar el borrador'});render()")
+  page.locator('[data-action=thread]').first.click()
+  page.locator('#reply-text').fill('Este borrador pertenece únicamente a la primera publicación.')
+  page.locator('[data-action=thread][data-id=qa-other-draft]').click()
+  assert page.locator('#reply-text').input_value()=='','Un borrador no puede pasar a otra funa'
+  page.evaluate("toggleInlineThread('qa-other-draft');state.reports=state.reports.filter(r=>r.id!=='qa-other-draft');render()")
   # Updates existing modal
   page.get_by_role('button',name='Ver actualizaciones de esta funa',exact=True).click()
   assert page.locator('#update-form').count()==1
@@ -84,6 +91,11 @@ with sync_playwright() as p:
   assert page.locator('h1').first.inner_text()=='Ajustes'
   assert page.locator('.signout-button').count()==1
   
+  # Una actualización del contador/perfil no debe borrar el apodo que se escribe.
+  page.locator('#alias-edit').fill('Borrador de apodo')
+  page.evaluate('render()')
+  assert page.locator('#alias-edit').input_value()=='Borrador de apodo'
+  assert page.locator('#alias-edit').evaluate('(el)=>el===document.activeElement')
   # Un fallo remoto conserva el borrador y permite reintentar el comentario.
   page.evaluate('''() => {
     const post=state.reports[0];state.remoteReports=[post];state.remoteReplies=[];
